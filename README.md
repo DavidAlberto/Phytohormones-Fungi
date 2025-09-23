@@ -177,7 +177,7 @@ We thank the open-source community for the development of the tools used in this
 
 For questions, bugs reports, or suggestions, please open an issue or contact:
 
-- Maintainer: [David Alberto García-Estrada](david.garcia@cimav.edu.mx)
+- Maintainer: [david.garcia@cimav.edu.mx](david.garcia@cimav.edu.mx)
 - Github issues: [GitHub Issues](https://github.com/DavidAlberto/Phytohormones-Fungi/issues)
 - Github DavidAlberto: [GitHub Profile](https://github.com/DavidAlberto)
 
