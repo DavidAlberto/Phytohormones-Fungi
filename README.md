@@ -842,7 +842,7 @@ We welcome contributions to improve this pipeline! Here's how you can help:
 
 If you encounter bugs or have suggestions:
 
-1. Check if the issue already exists in [Issues](https://github.com/yourusername/phytohormone-phylogenomics/issues)
+1. Check if the issue already exists in [Issues](https://github.com/DavidAlberto/Phytohormones-Fungi/issues)
 2. Create a new issue with:
    - **Clear title** describing the problem
    - **Steps to reproduce** the issue
