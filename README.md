@@ -1,4 +1,4 @@
-# When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings
+# Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements?
 
 This repository describes a **reproducible bioinformatics workflow** designed to identify, curate, and analyze homologs of phytohormone-associated genes in filamentous fungi. The strategy integrates sequence similarity searches, phylogenetic reconstruction, and structural modeling to support evolutionary and functional inference.
 
