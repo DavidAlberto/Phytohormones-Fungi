@@ -451,7 +451,7 @@ All versions are pinned in `env/environment.lock.linux-64.yml` and available via
 - **Docker image:** `davidalbertoge/hormone-analysis:latest` provides a pre-configured container with all command-line tools.
 - **Checkpointed pipeline:** `phylo_pipeline.sh` skips completed steps on re-run, allowing safe interruption and resumption.
 - **Zenodo archive:** A snapshot of this repository including all analysis outputs (alignments, tree files, figures) is permanently archived at [https://doi.org/10.5281/zenodo.XXXXXXX](https://doi.org/10.5281/zenodo.XXXXXXX).
-- **Database versions:** Proteomes were downloaded from UniProt in [month year] and from NCBI RefSeq in [month year]. The exact download manifest is available in `manifests/proteomes.tsv` in the Zenodo archive.
+- **Database versions:** Proteomes were downloaded from UniProt in [october 2025] and from NCBI RefSeq in [october 2025]. The exact download manifest is available in `manifests/proteomes.tsv` in the Zenodo archive.
 
 ---
 
