@@ -1,7 +1,7 @@
 # Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements?
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![DOI](https://zenodo.org/badge/1057660765.svg)](https://doi.org/10.5281/zenodo.20115766)
 [![Bioinformatics](https://img.shields.io/badge/field-Bioinformatics-blue.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
 [![Phylogenetics](https://img.shields.io/badge/analysis-Phylogenomics-green.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
 
@@ -482,7 +482,7 @@ If you use this pipeline, please cite both the article and the software:
   year      = {2026},
   publisher = {Zenodo},
   version   = {v1.0.0},
-  doi       = {10.5281/zenodo.XXXXXXX},
+  doi       = {10.5281/zenodo.20115766},
   url       = {https://github.com/DavidAlberto/Phytohormones-Fungi}
 }
 ```
