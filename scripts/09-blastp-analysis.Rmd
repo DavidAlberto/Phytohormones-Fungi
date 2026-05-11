@@ -1,0 +1,540 @@
+---
+title: "BLASTp Results Filtering and Best-Hit Curation"
+author: "David Alberto García Estrada"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Introduction
+
+This document filters BLASTp results from the custom protein database search and
+selects the **single best hit per Query–Organism pair**. The curation strategy
+ensures one representative sequence per organism per gene family enters
+downstream phylogenetic analysis, preventing organisms with paralog expansions
+from dominating the dataset.
+
+Input: 15-column tabular BLASTp output (`outfmt 6`) with columns:
+`qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovs qlen slen`
+
+Best-hit selection priority (within each Query–Organism group):
+
+1. **Bit score** (highest) — alignment quality
+2. **qcovs** (highest) — fraction of the query aligned
+3. **pident** (highest) — sequence identity
+4. **E-value** (lowest) — statistical significance
+
+---
+
+# 1. Configuration
+
+```{r configuration}
+library(tidyverse)
+
+# =============================================================================
+# USER CONFIGURATION — edit these paths before running
+# =============================================================================
+
+# Path to the filtered BLASTp results (output of blastp_batch.sh)
+INPUT_BLAST_FILE <- "results/blast/filtered/<protein_name>_blastp_filtered.tsv"  # <-- CHANGE THIS
+
+# Directory where output files will be written
+OUTPUT_DIRECTORY <- "results/blast/unique/<protein_name>"                        # <-- CHANGE THIS
+
+# Organism extraction method — must match the header format of hormoneDB.fasta.
+# Options:
+#   "taxid"        — TaxID prefix before the first "|"  (e.g., "105231")
+#                    Use this when the database was built with prepare_blastdb.sh
+#   "species_code" — UniProt species code (e.g., "KLENI" from A0A1Y1HVA8_KLENI)
+#   "os_name"      — Full species name after "OS=" in the header
+ORGANISM_METHOD <- "taxid"
+
+# =============================================================================
+
+cat(sprintf("✓ Configuration loaded\n"))
+cat(sprintf("  Input file      : %s\n", INPUT_BLAST_FILE))
+cat(sprintf("  Output directory: %s\n", OUTPUT_DIRECTORY))
+cat(sprintf("  Organism method : %s\n", ORGANISM_METHOD))
+```
+
+---
+
+# 2. Data Loading
+
+```{r load_data}
+cat(sprintf("\nLoading BLASTp results from '%s'...\n", INPUT_BLAST_FILE))
+
+blast_results <- read_tsv(
+  INPUT_BLAST_FILE,
+  col_names = TRUE,
+  show_col_types = FALSE
+)
+
+cat(sprintf("✓ Data loaded: %d hits, %d columns\n",
+            nrow(blast_results), ncol(blast_results)))
+
+# Verify expected 15-column extended format
+expected_cols <- c("qseqid", "sseqid", "pident", "length", "mismatch",
+                   "gapopen", "qstart", "qend", "sstart", "send",
+                   "evalue", "bitscore", "qcovs", "qlen", "slen")
+
+missing_cols <- setdiff(expected_cols, colnames(blast_results))
+if (length(missing_cols) > 0) {
+  cat("\n⚠ WARNING: Missing expected columns:",
+      paste(missing_cols, collapse = ", "), "\n")
+} else {
+  cat("✓ All 15 expected columns present\n")
+}
+
+cat("\nPreview (key columns):\n")
+blast_results %>%
+  select(qseqid, sseqid, pident, evalue, bitscore, qcovs) %>%
+  head(3) %>%
+  print()
+```
+
+---
+
+# 3. Organism Extraction
+
+```{r extract_organism}
+cat("\nExtracting organism identifier from sseqid...\n")
+
+# Extract organism ID from the subject sequence header.
+# The method must match the header format used when building hormoneDB.fasta:
+#   "taxid"        → "105231|tr|A0A1Y1HVA8|..." → "105231"
+#   "species_code" → "...|A0A1Y1HVA8_KLENI ..." → "KLENI"
+#   "os_name"      → "... OS=Klebsormidium nitens OX=..." → "Klebsormidium nitens"
+blast_results <- blast_results %>%
+  mutate(organism = case_when(
+    ORGANISM_METHOD == "taxid" ~
+      str_extract(sseqid, "^[^|]+"),
+    ORGANISM_METHOD == "species_code" ~
+      str_extract(sseqid, "_([A-Z0-9]+)\\s", group = 1),
+    ORGANISM_METHOD == "os_name" ~
+      str_extract(sseqid, "OS=([^=]+?)(?:OX=|GN=|PE=|$)", group = 1) %>%
+      str_trim(),
+    TRUE ~ str_extract(sseqid, "^[^|]+")
+  ))
+
+cat("\nExtraction examples (first 5 unique organisms):\n")
+blast_results %>%
+  select(sseqid, organism) %>%
+  distinct(organism, .keep_all = TRUE) %>%
+  head(5) %>%
+  print(width = Inf)
+
+num_organisms <- n_distinct(blast_results$organism)
+num_queries   <- n_distinct(blast_results$qseqid)
+cat(sprintf("\n✓ Unique organisms: %d\n", num_organisms))
+cat(sprintf("✓ Unique queries  : %d\n", num_queries))
+
+# Flag headers that did not yield a valid organism ID
+num_na <- sum(is.na(blast_results$organism))
+if (num_na > 0) {
+  cat(sprintf("\n⚠ WARNING: %d hits with no extractable organism ID\n", num_na))
+  cat("  Problematic sseqid examples:\n")
+  blast_results %>%
+    filter(is.na(organism)) %>%
+    select(sseqid) %>%
+    head(3) %>%
+    print()
+  cat("  → Check ORGANISM_METHOD or the sseqid format in your database\n")
+}
+```
+
+---
+
+# 4. Pre-filtering Exploratory Analysis
+
+```{r exploratory_analysis}
+cat("\nQuery–Organism hit distribution (before filtering)...\n")
+
+# Count hits per Query–Organism combination to understand redundancy
+duplicates_summary <- blast_results %>%
+  group_by(qseqid, organism) %>%
+  summarise(num_hits = n(), .groups = "drop") %>%
+  arrange(desc(num_hits))
+
+cat(sprintf("  Total Query–Organism combinations : %d\n", nrow(duplicates_summary)))
+cat(sprintf("  Combinations with 1 hit           : %d\n",
+            sum(duplicates_summary$num_hits == 1)))
+cat(sprintf("  Combinations with multiple hits   : %d\n",
+            sum(duplicates_summary$num_hits > 1)))
+
+cat("\nTop 10 combinations with most hits (will be reduced to 1):\n")
+duplicates_summary %>%
+  filter(num_hits > 1) %>%
+  head(10) %>%
+  print()
+
+# Show a concrete example of multiple hits being collapsed
+if (sum(duplicates_summary$num_hits > 1) > 0) {
+  example_case <- duplicates_summary %>%
+    filter(num_hits > 1) %>%
+    slice(1)
+
+  cat(sprintf("\nExample — Query '%s' + Organism '%s' (%d hits):\n",
+              example_case$qseqid,
+              example_case$organism,
+              example_case$num_hits))
+
+  blast_results %>%
+    filter(qseqid == example_case$qseqid,
+           organism == example_case$organism) %>%
+    select(sseqid, pident, evalue, bitscore, qcovs, length) %>%
+    arrange(desc(bitscore)) %>%
+    print()
+
+  cat("→ Only the first row (highest bitscore) will be retained\n")
+}
+```
+
+---
+
+# 5. Best-Hit Filtering
+
+```{r process_data}
+cat("\n", rep("=", 70), "\n", sep = "")
+cat("FILTERING: ONE BEST HIT PER QUERY–ORGANISM\n")
+cat(rep("=", 70), "\n", sep = "")
+
+# Rationale: grouping by organism (not by sequence ID) ensures that organisms
+# with paralog expansions contribute only one representative to the alignment,
+# maintaining balanced taxon sampling in the phylogenetic analysis.
+
+best_hits_per_query_organism <- blast_results %>%
+
+  # Group by query AND organism — each pair is treated as an independent unit
+  group_by(qseqid, organism) %>%
+
+  # Sort within each group by decreasing quality metrics:
+  #   1. bitscore (desc): alignment quality
+  #   2. qcovs    (desc): query coverage
+  #   3. pident   (desc): percent identity
+  #   4. evalue   (asc) : statistical significance
+  arrange(desc(bitscore), desc(qcovs), desc(pident), evalue,
+          .by_group = TRUE) %>%
+
+  # Retain only the top-ranked hit per group
+  slice(1) %>%
+  ungroup()
+
+# Reduction statistics
+cat(sprintf("\n✓ Filtering complete\n"))
+cat(sprintf("  Original hits       : %7d\n", nrow(blast_results)))
+cat(sprintf("  After filtering     : %7d\n", nrow(best_hits_per_query_organism)))
+cat(sprintf("  Redundant hits removed: %7d (%.1f%%)\n",
+            nrow(blast_results) - nrow(best_hits_per_query_organism),
+            100 * (1 - nrow(best_hits_per_query_organism) / nrow(blast_results))))
+
+cat(sprintf("\n  Queries processed  : %d\n",
+            n_distinct(best_hits_per_query_organism$qseqid)))
+cat(sprintf("  Unique organisms   : %d\n",
+            n_distinct(best_hits_per_query_organism$organism)))
+
+# Per-query organism distribution
+cat("\nOrganism count per query:\n")
+organism_distribution <- best_hits_per_query_organism %>%
+  count(qseqid, name = "num_organisms") %>%
+  arrange(desc(num_organisms))
+print(organism_distribution)
+
+cat(sprintf("\n  Mean   : %.1f organisms/query\n",
+            mean(organism_distribution$num_organisms)))
+cat(sprintf("  Median : %.0f\n",
+            median(organism_distribution$num_organisms)))
+cat(sprintf("  Range  : %d – %d\n",
+            min(organism_distribution$num_organisms),
+            max(organism_distribution$num_organisms)))
+```
+
+---
+
+# 6. Quality Verification
+
+```{r quality_check}
+cat("\n", rep("=", 70), "\n", sep = "")
+cat("QUALITY CHECKS\n")
+cat(rep("=", 70), "\n", sep = "")
+
+# Test 1: Uniqueness — no duplicated Query–Organism pairs
+cat("\nTest 1: Query–Organism uniqueness...\n")
+duplicates_check <- best_hits_per_query_organism %>%
+  group_by(qseqid, organism) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  filter(count > 1)
+
+if (nrow(duplicates_check) > 0) {
+  cat("❌ FAIL: Duplicated Query–Organism pairs found:\n")
+  print(duplicates_check)
+  cat("  → This should not occur. Review the filtering code.\n")
+} else {
+  cat("✅ PASS: Each Query–Organism pair has exactly 1 hit\n")
+}
+
+# Test 2: Value ranges — pident and qcovs must be in [0, 100]
+cat("\nTest 2: Value ranges...\n")
+
+invalid_pident <- sum(best_hits_per_query_organism$pident < 0 |
+                      best_hits_per_query_organism$pident > 100)
+if (invalid_pident > 0) {
+  cat(sprintf("  ⚠ %d hits with pident outside [0, 100]\n", invalid_pident))
+} else {
+  cat("  ✅ pident: all values in valid range [0, 100]\n")
+}
+
+invalid_qcovs <- sum(best_hits_per_query_organism$qcovs < 0 |
+                     best_hits_per_query_organism$qcovs > 100)
+if (invalid_qcovs > 0) {
+  cat(sprintf("  ⚠ %d hits with qcovs outside [0, 100]\n", invalid_qcovs))
+} else {
+  cat("  ✅ qcovs: all values in valid range [0, 100]\n")
+}
+
+# Test 3: Detailed example for one query
+cat("\nTest 3: Detailed example for the first query...\n")
+example_query <- best_hits_per_query_organism$qseqid[1]
+cat(sprintf("  Query: '%s'\n", example_query))
+cat(sprintf("  Organisms found: %d\n\n",
+            sum(best_hits_per_query_organism$qseqid == example_query)))
+
+best_hits_per_query_organism %>%
+  filter(qseqid == example_query) %>%
+  select(organism, sseqid, pident, qcovs, evalue, bitscore) %>%
+  arrange(desc(bitscore)) %>%
+  head(10) %>%
+  print(width = Inf)
+
+# Test 4: Overall quality statistics
+cat("\nTest 4: Quality statistics of selected hits...\n")
+quality_stats <- best_hits_per_query_organism %>%
+  summarise(
+    avg_pident    = mean(pident),
+    median_pident = median(pident),
+    min_pident    = min(pident),
+    avg_qcovs     = mean(qcovs),
+    median_qcovs  = median(qcovs),
+    min_qcovs     = min(qcovs),
+    avg_bitscore  = mean(bitscore),
+    median_evalue = median(evalue)
+  )
+
+cat(sprintf("  Identity  — mean: %.2f%%  median: %.2f%%  min: %.2f%%\n",
+            quality_stats$avg_pident,
+            quality_stats$median_pident,
+            quality_stats$min_pident))
+cat(sprintf("  Coverage  — mean: %.2f%%  median: %.2f%%  min: %.2f%%\n",
+            quality_stats$avg_qcovs,
+            quality_stats$median_qcovs,
+            quality_stats$min_qcovs))
+cat(sprintf("  Bitscore  — mean: %.2f\n",  quality_stats$avg_bitscore))
+cat(sprintf("  E-value   — median: %.2e\n", quality_stats$median_evalue))
+```
+
+---
+
+# 7. Output Files
+
+```{r save_results}
+cat("\n", rep("=", 70), "\n", sep = "")
+cat("SAVING RESULTS\n")
+cat(rep("=", 70), "\n", sep = "")
+
+if (!dir.exists(OUTPUT_DIRECTORY)) {
+  dir.create(OUTPUT_DIRECTORY, recursive = TRUE)
+  cat(sprintf("✓ Output directory created: %s\n", OUTPUT_DIRECTORY))
+}
+
+# File 1: Consolidated table — all queries, one row per Query–Organism
+consolidated_path <- file.path(OUTPUT_DIRECTORY, "ALL_queries_best_hits.tsv")
+write_tsv(best_hits_per_query_organism, consolidated_path)
+cat(sprintf("\n✓ [1/3] Consolidated table:\n"))
+cat(sprintf("        %s\n", consolidated_path))
+cat(sprintf("        %d rows (1 hit per Query–Organism)\n",
+            nrow(best_hits_per_query_organism)))
+
+# File 2: Individual tables per query
+cat(sprintf("\n✓ [2/3] Individual tables per query:\n"))
+num_files_saved <- 0
+best_hits_per_query_organism %>%
+  group_by(qseqid) %>%
+  group_walk(~ {
+    query_name    <- .y$qseqid
+    safe_filename <- str_replace_all(query_name, "[^[:alnum:]_-]", "_")
+    output_path   <- file.path(OUTPUT_DIRECTORY, paste0(safe_filename, ".tsv"))
+    write_tsv(.x, output_path)
+    num_files_saved <<- num_files_saved + 1
+    cat(sprintf("        %s (%d organisms)\n",
+                basename(output_path), nrow(.x)))
+  })
+
+# File 3: Per-query summary statistics
+summary_stats <- best_hits_per_query_organism %>%
+  group_by(qseqid) %>%
+  summarise(
+    num_organisms    = n(),
+    avg_identity     = round(mean(pident),    2),
+    median_identity  = round(median(pident),  2),
+    avg_coverage     = round(mean(qcovs),     2),
+    median_coverage  = round(median(qcovs),   2),
+    avg_evalue       = mean(evalue),
+    avg_bitscore     = round(mean(bitscore),  2),
+    best_bitscore    = round(max(bitscore),   2),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(num_organisms))
+
+summary_path <- file.path(OUTPUT_DIRECTORY, "summary_statistics.tsv")
+write_tsv(summary_stats, summary_path)
+cat(sprintf("\n✓ [3/3] Summary statistics:\n"))
+cat(sprintf("        %s\n", summary_path))
+
+cat("\n", rep("=", 70), "\n", sep = "")
+```
+
+---
+
+# 8. Summary and Visualizations
+
+```{r final_summary, fig.width=12, fig.height=8}
+cat("\n")
+cat("╔", rep("═", 68), "╗\n", sep = "")
+cat("║", sprintf("%68s", "ANALYSIS SUMMARY"), "║\n", sep = "")
+cat("╚", rep("═", 68), "╝\n\n", sep = "")
+
+cat(sprintf("  Queries analyzed          : %d\n",
+            n_distinct(best_hits_per_query_organism$qseqid)))
+cat(sprintf("  Unique organisms found    : %d\n",
+            n_distinct(best_hits_per_query_organism$organism)))
+cat(sprintf("  Final hits (1 per Q–O)    : %d\n",
+            nrow(best_hits_per_query_organism)))
+cat(sprintf("  Original hits             : %d\n",
+            nrow(blast_results)))
+cat(sprintf("  Redundancy removed        : %.1f%%\n",
+            100 * (1 - nrow(best_hits_per_query_organism) / nrow(blast_results))))
+cat(sprintf("\n  Output directory          : %s\n", OUTPUT_DIRECTORY))
+cat(sprintf("  Consolidated table        : ALL_queries_best_hits.tsv\n"))
+cat(sprintf("  Individual tables         : %d files\n", num_files_saved))
+cat(sprintf("  Summary statistics        : summary_statistics.tsv\n"))
+cat("\n✓ Analysis complete\n\n")
+
+library(gridExtra)
+
+# Plot 1: Organism count per query
+p1 <- organism_distribution %>%
+  ggplot(aes(x = reorder(qseqid, num_organisms), y = num_organisms)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = num_organisms), hjust = -0.2, size = 3) +
+  coord_flip() +
+  labs(title = "Organisms recovered per query",
+       subtitle = "Each bar represents one query sequence",
+       x = "Query ID",
+       y = "Number of organisms") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 8))
+
+# Plot 2: Percent identity distribution
+p2 <- best_hits_per_query_organism %>%
+  ggplot(aes(x = pident)) +
+  geom_histogram(bins = 30, fill = "coral", alpha = 0.7, color = "darkred") +
+  geom_vline(aes(xintercept = mean(pident)),
+             color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text",
+           x = mean(best_hits_per_query_organism$pident) + 5,
+           y = Inf, vjust = 2,
+           label = sprintf("Mean: %.1f%%",
+                           mean(best_hits_per_query_organism$pident)),
+           color = "red") +
+  labs(title = "Percent identity distribution",
+       subtitle = "Selected best hits",
+       x = "% Identity",
+       y = "Count") +
+  theme_minimal()
+
+# Plot 3: Query coverage distribution
+p3 <- best_hits_per_query_organism %>%
+  ggplot(aes(x = qcovs)) +
+  geom_histogram(bins = 30, fill = "seagreen", alpha = 0.7, color = "darkgreen") +
+  geom_vline(aes(xintercept = mean(qcovs)),
+             color = "darkgreen", linetype = "dashed", linewidth = 1) +
+  annotate("text",
+           x = mean(best_hits_per_query_organism$qcovs) + 5,
+           y = Inf, vjust = 2,
+           label = sprintf("Mean: %.1f%%",
+                           mean(best_hits_per_query_organism$qcovs)),
+           color = "darkgreen") +
+  labs(title = "Query coverage distribution (qcovs)",
+       subtitle = "Fraction of the query sequence aligned with the subject",
+       x = "% Query coverage",
+       y = "Count") +
+  theme_minimal()
+
+# Plot 4: Identity vs coverage scatter
+p4 <- best_hits_per_query_organism %>%
+  ggplot(aes(x = pident, y = qcovs)) +
+  geom_point(alpha = 0.4, color = "purple") +
+  geom_density_2d(color = "darkviolet") +
+  labs(title = "Identity vs. query coverage",
+       subtitle = "High-quality hits cluster in the upper-right corner",
+       x = "% Identity",
+       y = "% Query coverage") +
+  theme_minimal()
+
+print(p1)
+print(p2)
+print(p3)
+print(p4)
+```
+
+---
+
+# 9. Per-Query Summary Table
+
+```{r summary_table}
+cat("\nPer-query summary:\n\n")
+summary_stats %>%
+  mutate(avg_evalue = sprintf("%.2e", avg_evalue)) %>%
+  print(n = Inf)
+```
+
+---
+
+# 10. Technical Notes
+
+**Grouping strategy — why by organism, not by sequence ID:**
+
+```r
+# Incorrect: groups by individual sequence — allows multiple hits from the same organism
+group_by(qseqid, sseqid)
+
+# Correct: groups by organism — one representative per organism per query
+mutate(organism = str_extract(sseqid, "^[^|]+"))
+group_by(qseqid, organism)
+```
+
+**Organism extraction methods:**
+
+| Method | Pattern | Use case |
+|---|---|---|
+| `"taxid"` | First field before `\|` | Default; matches `prepare_blastdb.sh` output |
+| `"species_code"` | UniProt 5-letter code | Alternative UniProt-style headers |
+| `"os_name"` | Text after `OS=` | Full species name from UniProt headers |
+
+**Interpretation:** if a query returns 45 organisms, it means 45 *distinct* organisms, each represented by exactly one sequence — the highest-scoring hit for that organism.
+
+---
+
+# Session Info
+
+```{r session_info}
+sessionInfo()
+```

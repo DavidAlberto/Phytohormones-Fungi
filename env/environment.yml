@@ -1,0 +1,41 @@
+name: hormone-phylo
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  # --- Language runtime ---
+  - python=3.12
+
+  # --- Sequence homology ---
+  - blast=2.17.0
+  - hmmer=3.4
+
+  # --- Multiple sequence alignment ---
+  - mafft=7.526
+  - prank=170427
+
+  # --- Phylogenetic inference ---
+  - fasttree=2.2.0
+  - iqtree=3.0.1
+
+  # --- Alignment trimming and clustering ---
+  - trimal=1.5.0
+  - cd-hit=4.8.1
+
+  # --- Sequence utilities ---
+  - seqkit=2.10.1
+
+  # --- Database download ---
+  - entrez-direct=24.0
+  - wget=1.21.4
+  - curl
+
+  # --- Shell utilities ---
+  - gawk=5.3.1
+
+  # --- Python libraries ---
+  - biopython=1.86
+  - numpy
+  - pip

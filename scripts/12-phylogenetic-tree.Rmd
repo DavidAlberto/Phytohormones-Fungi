@@ -1,0 +1,4991 @@
+---
+title: "Phylogenetic Analysis with ggtree and Metadata Integration"
+author: "David Alberto García Estrada"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: united
+    code_folding: show
+    highlight: tango
+    number_sections: true
+abstract: |
+  This document provides a comprehensive, reproducible workflow for generating publication-quality phylogenetic trees from Newick format files with integrated metadata visualization. The pipeline supports both cladogram and phylogram layouts, incorporates taxonomic metadata (Kingdom, Phylum, early divergence status), and exports high-resolution figures suitable for scientific publication. All analyses follow best practices for computational reproducibility in phylogenetics.
+keywords: "phylogenetics, ggtree, metadata visualization, reproducible research, IQ-TREE"
+---
+
+```{r setup, include=FALSE}
+#############################################
+### GLOBAL CHUNK CONFIGURATION
+#############################################
+# Configure knitr options for reproducible analysis across different systems
+# These settings ensure consistent output and proper handling of figures
+# following best practices for computational reproducibility
+
+knitr::opts_chunk$set(
+  echo = TRUE,           # Display code chunks in rendered output
+  warning = FALSE,       # Suppress warning messages for cleaner output
+  message = FALSE,       # Suppress package loading messages
+  fig.align = 'center',  # Center all figures horizontally
+  fig.width = 12,        # Default figure width in inches
+  fig.height = 12,       # Default figure height in inches
+  cache = FALSE          # Disable caching for reproducibility
+)
+
+# Set random seed for reproducibility (if stochastic methods are used)
+set.seed(1992)
+```
+
+# 1. Introduction
+
+This R Markdown document provides a comprehensive workflow for generating publication-quality phylogenetic trees from Newick format files (.nwk) with integrated metadata visualization. The pipeline has been designed following best practices for reproducible bioinformatic analyses and computational biology workflows.
+
+## Phylogenetic Context
+
+Phylogenetic trees are fundamental tools in evolutionary biology, allowing researchers to visualize evolutionary relationships and infer patterns of diversification across taxonomic groups. Modern phylogenetic inference methods, such as maximum likelihood (ML) implemented in IQ-TREE, provide robust statistical frameworks for tree estimation from molecular sequence data.
+
+This workflow specifically handles IQ-TREE output, one of the most widely used tools for phylogenetic inference, known for its speed and accuracy in maximum likelihood tree estimation with ultrafast bootstrap approximation.
+
+## Key Features
+
+- **Data Processing**: Automated reading, validation, and cleaning of phylogenetic data
+- **Metadata Integration**: Links taxonomic IDs (TaxID) with Kingdom, Phylum, and divergence information
+- **Flexible Visualization**: Supports both cladogram (topology-focused) and phylogram (branch length-based) layouts
+- **Publication Ready**: High-resolution export in multiple formats (SVG, PNG) following journal standards
+- **Bootstrap Support**: Displays statistical support values with IQ-TREE format compatibility (UFBoot/SH-aLRT)
+- **Branch Lengths**: Optional display of evolutionary distances
+- **Multi-layer Metadata**: Color-coded labels, shape-coded points, and configurable size variations
+- **Clade Highlighting**: Visual emphasis on taxonomic groups of interest
+- **Phylum Annotations**: Intelligent abbreviation system for Phylum labels
+
+## Workflow Overview
+
+1. **Setup**: Load required packages and define helper functions
+2. **Configuration**: Set visualization and export parameters
+3. **Data Loading**: Read and validate phylogenetic tree from Newick format
+4. **Metadata Processing**: Load metadata and match with tree tips using multiple strategies
+5. **Label Cleaning**: Process tip labels with duplicate handling
+6. **Tree Visualization**: Generate multi-layer tree with metadata integration
+7. **Export**: Save high-quality figures in publication formats
+8. **Optional**: Generate presence/absence tables for comparative genomics
+
+## Software Requirements
+
+This workflow requires R (≥4.0.0) and packages from both CRAN and Bioconductor repositories. All dependencies are automatically installed if missing.
+
+## Citation
+
+If you use this workflow in your research, please cite the following key tools:
+
+- **ggtree**: Yu G, Smith DK, Zhu H, Guan Y, Lam TT (2017). ggtree: an R package for visualization and annotation of phylogenetic trees with their covariates and other associated data. *Methods in Ecology and Evolution*, 8(1):28-36.
+
+- **IQ-TREE**: Minh BQ, Schmidt HA, Chernomor O, et al. (2020). IQ-TREE 2: New models and efficient methods for phylogenetic inference in the genomic era. *Molecular Biology and Evolution*, 37(5):1530-1534.
+
+- **ape**: Paradis E, Schliep K (2019). ape 5.0: an environment for modern phylogenetics and evolutionary analyses in R. *Bioinformatics*, 35(3):526-528.
+
+# 2. Package Installation and Loading
+
+```{r libraries}
+#############################################
+### REQUIRED PACKAGES
+#############################################
+# This analysis requires packages from both CRAN and Bioconductor repositories
+# 
+# Phylogenetics packages:
+#   - ggtree: Grammar of graphics for phylogenetic trees (Bioconductor)
+#             Yu et al. (2017) Methods in Ecology and Evolution
+#   - treeio: Phylogenetic data input/output operations (Bioconductor)
+#   - ape: Analyses of Phylogenetics and Evolution (CRAN)
+#          Paradis & Schliep (2019) Bioinformatics
+#   - phangorn: Phylogenetic analysis in R (CRAN)
+#               Schliep (2011) Bioinformatics
+# 
+# Data manipulation:
+#   - dplyr: Grammar of data manipulation (CRAN)
+#            Wickham et al. (2023)
+#   - stringr: String manipulation utilities (CRAN)
+#              Wickham (2022)
+# 
+# Visualization:
+#   - ggplot2: Grammar of graphics system (CRAN)
+#              Wickham (2016) Springer
+#   - ggtreeExtra: Additional ggtree functionalities (Bioconductor)
+#   - ggnewscale: Multiple color/fill scales in ggplot2 (CRAN)
+#                 Campitelli (2022)
+# 
+# Export and project management:
+#   - svglite: High-quality SVG graphics device (CRAN)
+#              Wickham et al. (2022)
+#   - here: Project-relative path construction (CRAN)
+#           Müller (2020)
+
+required_packages <- c("ggtree", "treeio", "ggplot2", "dplyr", 
+                       "stringr", "svglite", "ape", "here",
+                       "ggtreeExtra", "ggnewscale", "phangorn")
+
+#############################################
+### FUNCTION: Install missing packages
+#############################################
+# Automatically detects and installs packages not present in the system
+# Handles both Bioconductor and CRAN repositories appropriately
+# 
+# Parameters:
+#   packages - character vector of package names to check and install
+# 
+# Returns:
+#   NULL (installs packages as side effect)
+# 
+# Note:
+#   Bioconductor packages require BiocManager for installation
+#   This function will install BiocManager first if needed
+
+install_if_missing <- function(packages) {
+  # Identify packages not yet installed in the system
+  new_packages <- packages[!(packages %in% installed.packages()[,"Package"])]
+  
+  if(length(new_packages) > 0) {
+    # Bioconductor packages require special installation procedure
+    bioc_packages <- c("ggtree", "treeio")
+    bioc_needed <- new_packages[new_packages %in% bioc_packages]
+    
+    if(length(bioc_needed) > 0) {
+      # Install BiocManager if not available
+      if (!requireNamespace("BiocManager", quietly = TRUE))
+        install.packages("BiocManager")
+      BiocManager::install(bioc_needed)
+    }
+    
+    # CRAN packages use standard installation
+    cran_needed <- new_packages[!(new_packages %in% bioc_packages)]
+    if(length(cran_needed) > 0) {
+      install.packages(cran_needed)
+    }
+  }
+}
+
+# Execute installation check
+install_if_missing(required_packages)
+
+# Load all libraries with suppressed startup messages
+suppressPackageStartupMessages({
+  library(ggtree)    # Phylogenetic tree visualization
+  library(treeio)    # Phylogenetic data input/output
+  library(ggplot2)   # Grammar of graphics system
+  library(dplyr)     # Data manipulation functions
+  library(stringr)   # String manipulation utilities
+  library(svglite)   # High-quality SVG export
+  library(ape)       # Analyses of Phylogenetics and Evolution
+  library(here)      # Project-relative path construction
+  library(ggtreeExtra) # Additional ggtree functionalities
+  library(ggnewscale)  # Multiple color/shape scales in ggplot2
+  library(phangorn)  # Phylogenetic analysis tools
+})
+
+cat("✓ All packages loaded successfully\n")
+```
+
+#  3. Parameter Configuration
+
+## 3.1 Project Structure and Input Files
+
+```{r input_files}
+#############################################
+### PROJECT DIRECTORY STRUCTURE
+#############################################
+# Configures project-relative paths for maximum reproducibility
+# 
+# This section uses the 'here' package to establish project structure
+# independent of working directory or user-specific paths. This ensures:
+#   - Scripts work consistently across different computers
+#   - Collaboration is seamless (no hardcoded paths)
+#   - Batch and manual execution use same structure
+#   - Results are organized systematically
+
+# ═══════════════════════════════════════════════════════════════════════
+# Base project directory (automatically detected by here::here())
+# ═══════════════════════════════════════════════════════════════════════
+base_dir <- here::here()
+
+# ═══════════════════════════════════════════════════════════════════════
+# Main data directories
+# ═══════════════════════════════════════════════════════════════════════
+data_dir <- file.path(base_dir, "data")           # Metadata and reference files
+phylo_dir <- file.path(base_dir, "results/phylo") # All phylogenetic analyses
+
+#############################################
+### PARAMETER HANDLING
+#############################################
+# Flexible parameter system supporting both manual and batch execution
+# 
+# Two execution modes:
+#   1. MANUAL: Run interactively in RStudio (edit parameters below)
+#   2. BATCH: Run via batch_phylogenetic_trees.R (parameters provided automatically)
+
+# ─────────────────────────────────────────────────────────────────────
+# Batch mode support (parameters provided by batch script)
+# ─────────────────────────────────────────────────────────────────────
+# Uncomment this section if you want to enable batch mode:
+
+if (exists("params") && !is.null(params)) {
+  # Batch mode: use provided parameters
+  if (!is.null(params$hormone)) hormone <- params$hormone
+  if (!is.null(params$file)) file <- params$file
+  if (!is.null(params$mode)) mode <- params$mode
+  cat("🤖 Batch mode: Using provided parameters\n")
+} else {
+  # Manual mode: use defaults below
+  if (!exists("hormone")) hormone <- "CK"
+  if (!exists("file")) file <- "RR"
+  if (!exists("mode")) mode <- "none"
+  cat("👤 Manual mode: Using default parameters\n")
+}
+
+#############################################
+### USER-DEFINED PARAMETERS
+#############################################
+# ⚠️ EDIT THESE PARAMETERS for your specific analysis
+# These values are used when running manually (not via batch script)
+
+# ─────────────────────────────────────────────────────────────────────
+# Hormone/Project Category Identifier
+# ─────────────────────────────────────────────────────────────────────
+# Organizes analyses by hormone or functional category
+# Examples: "ABA", "CK", "auxin", "ethylene", "gibberellin", "JA"
+# hormone <- "CK"
+
+# ─────────────────────────────────────────────────────────────────────
+# Gene/Protein Family Identifier
+# ─────────────────────────────────────────────────────────────────────
+# Must match your IQ-TREE output folder name (without file extension)
+# Examples: "IPT", "LOG", "CYP450", "NCED", "PIN"
+# file <- "IPT"
+
+# ─────────────────────────────────────────────────────────────────────
+# Visualization Mode
+# ─────────────────────────────────────────────────────────────────────
+# Controls branch length display in tree visualization
+# Options:
+#   "none"         → Cladogram (all tips aligned, topology only)
+#   "proportional" → Phylogram (branch lengths represent evolutionary distance)
+# mode <- "none"
+
+# ─────────────────────────────────────────────────────────────────────
+# Output Filename Identifier
+# ─────────────────────────────────────────────────────────────────────
+# Generates readable filenames from mode parameter
+# Typically:
+#   "none" → "clado" (cladogram)
+#   "proportional" → "phylo" (phylogram)
+name_mode <- dplyr::case_when(
+  mode == "none" ~ "clado",
+  mode == "proportional" ~ "phylo",
+  TRUE ~ "unknown_mode"  # Fallback for invalid input
+)
+
+# ─────────────────────────────────────────────────────────────────────
+# Presence/Absence Table Generation
+# ─────────────────────────────────────────────────────────────────────
+# Controls whether to generate binary presence/absence matrices
+# TRUE:  Generates individual gene table + consolidated hormone table
+# FALSE: Only generates phylogenetic tree visualizations
+generate_presence_absence <- TRUE
+
+#############################################
+### CONSTRUCT DIRECTORY PATHS
+#############################################
+# Systematic organization of input/output files
+# Following standardized directory structure for reproducibility
+
+# ═══════════════════════════════════════════════════════════════════════
+# Hormone-specific directories
+# ═══════════════════════════════════════════════════════════════════════
+
+# Main hormone analysis directory
+# Structure: phylogenetic/{hormone}/
+hormone_dir <- file.path(phylo_dir, hormone)
+
+# IQ-TREE output directory (contains all gene trees for this hormone)
+# Structure: phylogenetic/{hormone}/07_iqtree/
+iqtree_dir <- file.path(hormone_dir, "07_iqtree")
+
+# Figure output directory (contains all visualizations for this hormone)
+# Structure: phylogenetic/{hormone}/08_figures/
+figures_dir <- file.path(hormone_dir, "08_figures")
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gene-specific paths
+# ═══════════════════════════════════════════════════════════════════════
+
+# Gene-specific IQ-TREE directory
+# Structure: phylogenetic/{hormone}/07_iqtree/{gene}/
+file_dir <- file.path(iqtree_dir, file)
+
+# Input tree file path (Newick format from IQ-TREE)
+# Structure: phylogenetic/{hormone}/07_iqtree/{gene}/{gene}.nwk
+input_file <- file.path(file_dir, paste0(file, ".nwk"))
+
+# Gene-specific output directory for figures
+# Structure: phylogenetic/{hormone}/08_figures/{gene}/
+output_dir <- file.path(figures_dir, file)
+
+# Create output directory if it doesn't exist
+# recursive = TRUE: Creates parent directories if needed
+# showWarnings = FALSE: Suppresses message if directory already exists
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# ═══════════════════════════════════════════════════════════════════════
+# Metadata and table paths
+# ═══════════════════════════════════════════════════════════════════════
+
+# Metadata file path (organism information database)
+# Structure: data/Metadata.tsv
+metadata_file <- file.path(data_dir, "Metadata.tsv")
+
+# Directory for presence/absence tables
+# Structure: phylogenetic/{hormone}/09_presence-absence/
+presence_absence_dir <- file.path(hormone_dir, "09_presence-absence")
+dir.create(presence_absence_dir, showWarnings = FALSE, recursive = TRUE)
+
+# Individual gene table path
+# Structure: phylogenetic/{hormone}/09_presence-absence/{gene}.tsv
+presence_absence_file <- file.path(presence_absence_dir, paste0(file, ".tsv"))
+
+# Consolidated hormone table path (merges all genes)
+# Structure: phylogenetic/{hormone}/merged-genes.tsv
+merged_table_file <- file.path(hormone_dir, "merged-genes.tsv")
+
+#############################################
+### CONFIGURATION SUMMARY
+#############################################
+# Display configuration for user verification
+
+cat("\n╔════════════════════════════════════════╗\n")
+cat("║   PROJECT CONFIGURATION LOADED         ║\n")
+cat("╚════════════════════════════════════════╝\n\n")
+
+cat("📁 Project structure:\n")
+cat("   Base directory:", base_dir, "\n")
+cat("   Data directory:", data_dir, "\n")
+cat("   Phylogenetic directory:", phylo_dir, "\n\n")
+
+cat("🔬 Analysis parameters:\n")
+cat("   Hormone/Category:", hormone, "\n")
+cat("   Gene/Family:", file, "\n")
+cat("   Visualization mode:", mode, "\n")
+cat("   Output naming:", name_mode, "\n")
+cat("   Generate tables:", generate_presence_absence, "\n\n")
+
+cat("📂 Input/Output paths:\n")
+cat("   Tree file:", input_file, "\n")
+cat("   Metadata file:", metadata_file, "\n")
+cat("   Output directory:", output_dir, "\n")
+cat("   Presence/absence directory:", presence_absence_dir, "\n\n")
+
+cat("✓ Configuration completed successfully\n")
+cat("═══════════════════════════════════════\n\n")
+```
+
+## 3.2 Visualization Parameters
+
+```{r viz_parameters}
+#############################################
+### VISUALIZATION PARAMETERS
+#############################################
+# Comprehensive configuration for tree appearance and metadata display
+# These parameters control all visual aspects of the phylogenetic tree
+# following best practices for scientific publication graphics
+
+viz_params <- list(
+  #==========================================
+  # TREE LAYOUT CONFIGURATION
+  #==========================================
+  # Layout type controls overall tree structure
+  # Options: "circular", "rectangular", "fan", "radial"
+  #   circular:    Best for large trees, equal spacing around center
+  #   rectangular: Traditional horizontal tree (left-to-right)
+  #   fan:         Semi-circular spread (180°)
+  #   radial:      Full circular with branches from center
+  layout = "circular",
+  
+  # Branch length representation mode
+  # Controlled by the 'mode' variable set in parameter configuration
+  # "none"         = Cladogram (all tips aligned vertically, emphasizes topology)
+  # "proportional" = Phylogram (branch length represents evolutionary distance)
+  # Note: Branch length numerical values display regardless of this setting
+  branch_length_mode = mode,
+  
+  #==========================================
+  # BRANCH STYLING
+  #==========================================
+  # Branch line thickness (affects visual weight of tree structure)
+  # Recommended values based on tree size:
+  #   0.2-0.3: Subtle, suitable for large trees (>100 taxa)
+  #   0.35-0.5: Balanced visibility, default for most cases (30-100 taxa)
+  #   0.6-1.0: Bold, suitable for small trees (<30 taxa) or presentations
+  branch_size = dplyr::case_when(
+    mode == "none" ~ 0.50,
+    mode == "proportional" ~ 0.50,
+    TRUE ~ 0.50  # fallback value for unexpected modes
+  ),
+  
+  # Branch line color
+  # Controls the color of all tree branches
+  # "#212121": Soft black (professional, less harsh than pure black)
+  # "black":   Pure black (maximum contrast, traditional)
+  # "gray30":  Softer appearance, good for dense trees
+  branch_color = "black",
+  
+  #==========================================
+  # TIP LABELS (Species/Organism Names)
+  #==========================================
+  # Text size for tip labels (scales with tree size)
+  # Guidelines based on number of taxa:
+  #   Small trees (<30 taxa):    3.0-4.0 (larger text, more readable)
+  #   Medium trees (30-100):     2.0-2.5 (balanced size)
+  #   Large trees (>100 taxa):   1.5-2.0 (smaller to fit more labels)
+  tip_size = dplyr::case_when(
+    mode == "none" ~ 2.5,
+    mode == "proportional" ~ 2.5,
+    TRUE ~ 2.5  # fallback value
+  ),
+  
+  # Alignment of tip labels
+  # Controls whether labels are vertically aligned
+  # TRUE:  All labels aligned with connecting guide lines (clearer hierarchy)
+  # FALSE: Labels directly after each tip (cleaner for circular layout)
+  align_tips = FALSE,
+  
+  # Distance between tip point and label start (in tree units)
+  # Controls spacing between tip markers and text labels
+  # Larger values (0.01-0.02): More separation, better for dense trees
+  # Smaller values (0.001-0.005): Closer to tip, more compact
+  # 0: Label touches the tip point directly
+  # Typical values: 0.3 for cladogram, 0.03 for phylogram
+  label_offset = dplyr::case_when(
+    mode == "none" ~ 0.3,
+    mode == "proportional" ~ 0.03,
+    TRUE ~ 0.3  # fallback value
+  ),
+  
+  #==========================================
+  # BOOTSTRAP VALUES (Statistical Support)
+  #==========================================
+  # Bootstrap values indicate statistical support for each node/clade
+  # Higher values (>70) indicate well-supported clades
+  
+  # Bootstrap text size (controls prominence of support values)
+  # Recommended values for different contexts:
+  #   1.5-2.0: Subtle, professional style for publications
+  #   2.0-2.5: Standard visibility, general purpose
+  #   2.5-3.0: Prominent, emphasized for presentations
+  bootstrap_size = dplyr::case_when(
+    mode == "none" ~ 2.0,
+    mode == "proportional" ~ 2.0,
+    TRUE ~ 2.0  # fallback value
+  ),
+  
+  # Bootstrap text color
+  # Controls visibility and aesthetic of support values
+  # "#424242": Professional dark gray (RECOMMENDED for publications)
+  # "firebrick": Traditional red (eye-catching, common in older literature)
+  # "black": Maximum contrast (simple and clear)
+  bootstrap_color = "black",
+  
+  # Minimum bootstrap value to display (filters low-support nodes)
+  # Common thresholds in phylogenetics:
+  #   50: Moderate support (show most values, may clutter)
+  #   70: Good support (balanced display, commonly used)
+  #   90: Strong support only (cleaner appearance, conservative)
+  bootstrap_threshold = 50,
+  
+  # Bootstrap position adjustment (horizontal nudge from node)
+  # Controls horizontal positioning relative to node center
+  # 0: Automatic positioning at node (RECOMMENDED)
+  # Negative (-0.1 to -0.01): Move toward tree center
+  # Positive (0.01 to 0.1): Move toward tips
+  # Typical values: 0.5 for cladogram, 0.05 for phylogram
+  bootstrap_nudge_x = dplyr::case_when(
+    mode == "none" ~ 0.5,
+    mode == "proportional" ~ 0.05,
+    TRUE ~ 0  # fallback to automatic positioning
+  ),
+  
+  #==========================================
+  # BRANCH LENGTHS (Evolutionary Distance)
+  #==========================================
+  # Branch lengths represent evolutionary distance (substitutions per site)
+  # Most informative in phylogram mode
+  
+  # Display branch length numerical values on branches
+  # TRUE:  Show evolutionary distances (informative for phylograms)
+  # FALSE: Hide values for cleaner appearance (better for cladograms)
+  show_branch_length = TRUE,
+  
+  # Branch length text size
+  # Should be less prominent than bootstrap values
+  # Recommended values:
+  #   1.5-1.8: Subtle, less prominent than bootstrap
+  #   2.0-2.2: Balanced visibility
+  #   2.3-2.5: Emphasized (use sparingly)
+  branch_length_size = dplyr::case_when(
+    mode == "none" ~ 2.0,
+    mode == "proportional" ~ 2.0,
+    TRUE ~ 2.0  # fallback value
+  ),
+  
+  # Branch length text color
+  # Should be distinct from bootstrap color
+  # "#757575": Professional medium gray (RECOMMENDED, less distracting)
+  # "steelblue": Traditional blue (older phylogenetic literature)
+  # "#222222": Dark gray (current setting, subtle)
+  # "gray40": Alternative neutral color
+  branch_length_color = "#222222",
+  
+  # Minimum branch length to display (prevents clutter from short branches)
+  # Filters out very short branches that would clutter the visualization
+  # 0.01: Show almost all branches
+  # 0.05: Moderate filtering (RECOMMENDED for most cases)
+  # 0.1:  Only substantial branches (cleaner but less informative)
+  branch_length_threshold = 0.05,
+  
+  #==========================================
+  # TIP POINTS (Markers at Leaf Ends)
+  #==========================================
+  # Circular markers at each tip (terminal node)
+  # Can encode additional metadata through color/shape
+  
+  # Size of circular markers at each tip
+  # Recommended values based on tree size:
+  #   1.5-2.0: Subtle markers (good for large trees)
+  #   2.0-2.5: Standard visibility (general purpose)
+  #   2.5-3.5: Prominent markers (emphasize metadata, small trees)
+  tip_point_size = dplyr::case_when(
+    mode == "none" ~ 2.5,
+    mode == "proportional" ~ 2.5,
+    TRUE ~ 2.5  # fallback value
+  ),
+  
+  # Default color for tip point markers
+  # This will be overridden by metadata colors if metadata visualization is enabled
+  # "#616161": Neutral gray (good default when metadata not used)
+  # "darkorange": Traditional orange (older phylogenetic software default)
+  # "black": Current setting (simple and clear)
+  tip_point_color = "black",
+  
+  #==========================================
+  # INTERNAL NODE POINTS (Bifurcation Markers)
+  #==========================================
+  # Markers at internal nodes (bifurcation/branching points)
+  # These provide visual anchors for bootstrap values
+  
+  # Size of markers at internal nodes
+  # Should be smaller than tip points to maintain hierarchy
+  # Recommended values:
+  #   1.0-1.5: Subtle (RECOMMENDED for publications, less distracting)
+  #   1.5-2.0: Standard visibility
+  #   2.0-3.0: Prominent (use for presentations or emphasis)
+  node_point_size = dplyr::case_when(
+    mode == "none" ~ 1.0,
+    mode == "proportional" ~ 1.0,
+    TRUE ~ 1.0  # fallback value
+  ),
+  
+  # Color of internal node markers
+  # Should be less prominent than tip points
+  # "#424242": Dark gray (RECOMMENDED - subtle but visible)
+  # "darkgreen": Traditional green (older literature convention)
+  # "black": Maximum contrast (current setting)
+  node_point_color = "black",
+  
+  #==========================================
+  # CIRCULAR LAYOUT ADJUSTMENTS
+  #==========================================
+  # Special settings for circular tree layout
+  
+  # Create hollow center in circular layout (donut-style)
+  # TRUE:  Donut appearance (cleaner, more space for labels)
+  # FALSE: Tree extends to center point (traditional circular)
+  add_center_circle = TRUE,
+  
+  # Size of center hollow (negative values create inward offset)
+  # The more negative, the larger the hollow center
+  # Recommended values:
+  #   -0.05 to -0.1:  Subtle effect
+  #   -0.1 to -0.2:   Balanced (RECOMMENDED)
+  #   -0.2 to -0.3:   Prominent donut appearance
+  center_circle_size = -0.08,
+  
+  # Text rotation for circular layout
+  # Controls whether text follows the circular arc
+  # TRUE:  Text follows circle (reads along arc, may require head tilting)
+  # FALSE: Text remains horizontal (RECOMMENDED for readability)
+  rotate_branch_text = TRUE,
+  
+  #==========================================
+  # ADDITIONAL TREE ELEMENTS
+  #==========================================
+  # Add scale bar showing evolutionary distance
+  # Essential for interpreting branch lengths in phylograms
+  # TRUE: Include scale bar (RECOMMENDED for phylograms)
+  # FALSE: Omit scale bar (acceptable for cladograms)
+  add_scale_bar = TRUE,
+  
+  # Add circular grid lines (circular layout only)
+  # Provides visual guides for distance measurements
+  # TRUE: Subtle distance guides (can help read distances)
+  # FALSE: Clean appearance (RECOMMENDED for publications)
+  add_grid_lines = FALSE,
+  
+  #==========================================
+  # METADATA INTEGRATION
+  #==========================================
+  # Enable metadata visualization layers
+  # TRUE: Use Kingdom, Phylum, Early data for enhanced visualization
+  # FALSE: Simple tree without metadata colors/shapes
+  use_metadata = TRUE,
+  
+  # ===================================================================
+  # KINGDOM VISUALIZATION - Multiple Independent Options
+  # ===================================================================
+  # You can enable multiple options simultaneously for different effects
+  # Each option provides a distinct way to visualize Kingdom information
+  
+  # Metadata column name for Kingdom classification
+  metadata_kingdom_column = "Kingdom",
+  
+  # OPTION 1: Color branches by Kingdom
+  # Branches colored according to Kingdom of descendant tips
+  # TRUE:  Branches colored by Kingdom (transparent background)
+  # FALSE: Branches use fixed color (specified in branch_color)
+  kingdom_color_branch = FALSE,
+  
+  # OPTION 2: Color clade background by Kingdom
+  # Background shading for monophyletic Kingdom clades
+  # TRUE:  Background area colored by Kingdom, branches/text remain black
+  # FALSE: No background coloring
+  # NOTE: Only works well if Kingdoms form monophyletic groups
+  kingdom_background_clade = FALSE,
+  
+  # OPTION 3: Color tip label text by Kingdom
+  # Species names colored by their Kingdom
+  # TRUE:  Text colored by Kingdom (transparent background)
+  # FALSE: Black text (standard)
+  kingdom_color_text = FALSE,
+  
+  # OPTION 4: Color tip label background by Kingdom
+  # Colored boxes behind species names
+  # TRUE:  Label background colored, text remains black
+  # FALSE: Transparent background (standard)
+  kingdom_background_text = FALSE,
+  
+  # OPTION 5: Kingdom lateral strip
+  # Colored bar beside the tree showing Kingdom for each organism
+  # TRUE:  Enable strip showing Kingdom colors
+  # FALSE: Disable strip
+  show_strip_kingdom = TRUE,
+  
+  # Strip width (units in tree space)
+  # Adjust based on layout mode for proper proportions
+  strip_kingdom_width = dplyr::case_when(
+    mode == "none" ~ 3.0,           # Cladogram: wider strip
+    mode == "proportional" ~ 0.3,   # Phylogram: narrower strip
+    TRUE ~ 0.5                      # fallback value
+  ),
+  
+  # Space between tree labels and strip
+  # Prevents overlap between tip labels and Kingdom strip
+  strip_kingdom_offset = dplyr::case_when(
+    mode == "none" ~ 1.0,           # Cladogram: more space
+    mode == "proportional" ~ 0.1,   # Phylogram: less space
+    TRUE ~ 0                        # fallback value
+  ),
+  
+  # Strip offset calculation mode
+  # Controls how the strip position is calculated
+  # "fixed":   Uses fixed offset (strip_kingdom_fixed_max_chars)
+  # "dynamic": Calculates offset based on actual label lengths
+  strip_kingdom_offset_mode = dplyr::case_when(
+    mode == "none" ~ "fixed",           # Cladogram: fixed offset
+    mode == "proportional" ~ "dynamic",  # Phylogram: dynamic offset
+    TRUE ~ "fixed"                      # fallback value
+  ),
+  
+  # Maximum characters for fixed offset calculation
+  # Used only when strip_kingdom_offset_mode = "fixed"
+  strip_kingdom_fixed_max_chars = 0.5,
+  
+  # Additional padding between labels and strip
+  # Ensures proper spacing regardless of mode
+  strip_kingdom_offset_padding = dplyr::case_when(
+    mode == "none" ~ 0.5,        # Cladogram: normal padding
+    mode == "proportional" ~ 0.05,  # Phylogram: small padding
+    TRUE ~ 0.5                   # fallback value
+  ),
+  
+  # Legend label for Kingdom strip
+  # Appears in figure legend
+  strip_kingdom_label = "Kingdom",
+  
+  # Color palette for Kingdom visualization
+  # Scientific publication color palette with distinct hues
+  # Colors chosen for print compatibility and colorblind accessibility
+  # kingdom_colors = c(
+  #   "Bacteria" = "#CD8439",    # Brown-orange (bacteria)
+  #   "Protista" = "#905B96",    # Purple (protists)
+  #   "Chromista" = "#B0E0E3",   # Light blue (chromists)
+  #   "Plantae" = "#7CA47C",     # Green (plants)
+  #   "Fungi" = "#DC5D4D",       # Red-coral (fungi)
+  #   "Animalia" = "#5FBFA2",    # Teal (animals)
+  #   "Archaea" = "#A0A1A5"     # Gray (archaea)
+  # ),
+  
+  kingdom_colors = c(
+    "Bacteria" = "#CD8439",    # Brown-orange (bacteria)
+    "Protozoa" = "#905B96",    # Purple (protists)
+    "Chromista" = "#4A90E2",   # Bright blue (chromists)
+    "Plantae" = "#2D8B2D",     # Forest green (plants)
+    "Fungi" = "#DC5D4D",       # Red-coral (fungi)
+    "Animalia" = "#FF6B9D",    # Bright pink (animals)
+    "Archaea" = "#7D7D7D"      # Dark gray (archaea)
+  ),
+  
+  # ===================================================================
+  # EARLY DIVERGING LINEAGES VISUALIZATION
+  # ===================================================================
+  # "Early diverging" refers to ancient lineages that diverged early
+  # in the evolution of a taxonomic group (e.g., basal fungi, early plants)
+  
+  # Metadata column name for early diverging status
+  metadata_early_column = "Early",
+  
+  # Apply shapes based on Early column values
+  # Different shapes distinguish early vs. non-early diverging lineages
+  # TRUE:  Different shapes for Yes/No/Not applicable
+  # FALSE: Uniform circular shapes for all tips
+  early_point_shape = TRUE,
+  
+  # Apply fill colors based on Early column values
+  # Color coding complements shape distinction
+  # TRUE:  Different fill colors for Yes/No/Not applicable
+  # FALSE: Uniform color (uses tip_point_color)
+  early_point_fill_color = TRUE,
+  
+  # Color mapping for early diverging status
+  # High contrast colors for clear distinction
+  early_colors = c(
+    "Yes" = "#E00000",        # Red (highlights early diverging)
+    "No" = "#000090",         # Blue (non-early diverging)
+    "Doesn’t apply" = "#FFFFFF"    # White (not applicable/unknown)
+  ),
+  
+  # Shape mapping for early diverging status
+  # R shape codes (pch values):
+  #   21: Circle (fillable)
+  #   22: Square (fillable)
+  #   23: Diamond (fillable)
+  #   24: Triangle pointing up (fillable)
+  early_shapes = c(
+    "Yes" = 22,         # 22 = Square (distinctive for early diverging)
+    "No" = 23,          # 23 = Diamond (standard for non-early)
+    "Doesn’t apply" = 21     # 21 = Circle (neutral for not applicable)
+  ),
+  
+  # ===================================================================
+  # LATERAL STRIPS CONFIGURATION (Ecological Categories)
+  # ===================================================================
+  # Additional metadata strip for ecological/functional classifications
+  
+  # Enable Considered (Ecological Category) strip
+  # Shows ecological niche or functional category for each organism
+  show_strip_considered = FALSE,
+  
+  # Metadata column name for ecological categories
+  strip_considered_column = "Considered",
+  
+  # Strip width (units in tree space)
+  strip_considered_width = 3.0,
+  
+  # Offset from previous strip or labels
+  # Adds spacing between Kingdom strip (if enabled) and this strip
+  strip_considered_offset = 0.1,
+  
+  # Legend label for ecological category strip
+  strip_considered_label = "Ecological Category",
+  
+  # Color palette for ecological categories
+  # Organized by ecological guild/functional group
+  # Colors chosen to reflect ecological associations
+  strip_considered_colors = c(
+    # Fungal guilds (browns/oranges - soil/terrestrial associations)
+    "Soil fungus" = "#8B4513",          # Saddle brown
+    "Black mold" = "#2F1810",           # Dark brown
+    "Lichen" = "#B8860B",               # Dark goldenrod
+    "Mycorhiza" = "#D2691E",            # Chocolate
+    
+    # Aquatic organisms (blues - water associations)
+    "Aquatic chytrid" = "#4682B4",      # Steel blue
+    "Sweet water mold" = "#5F9EA0",     # Cadet blue
+    "Fresh water fungi" = "#6495ED",    # Cornflower blue
+    "Ocean Bacteria" = "#000080",       # Navy
+    "Aquatic bacteria" = "#1E90FF",     # Dodger blue
+    
+    # Parasites/Pathogens (reds - pathogenic associations)
+    "Opportunistic" = "#DC143C",        # Crimson
+    "Obligate parasite" = "#8B0000",    # Dark red
+    
+    # Specialized fungi types (purples/grays)
+    "Anaerobic fungus" = "#9370DB",     # Medium purple
+    "Chytrid like" = "#BA55D3",         # Medium orchid
+    
+    # Plant lineages (greens - photosynthetic associations)
+    "Hornworts" = "#228B22",            # Forest green
+    "Moss" = "#32CD32",                 # Lime green
+    "Liverwort" = "#90EE90",            # Light green
+    "Charophytic algae" = "#00FF7F",    # Spring green
+    "Green algae" = "#00FA9A",          # Medium spring green
+    "Red algae" = "#FF6347",            # Tomato
+    "Early Terrestrial" = "#556B2F",    # Dark olive green
+    
+    # Microbes (yellows/tans - microbial associations)
+    "Prokaryote" = "#FFD700",           # Gold
+    "Amoeba" = "#F0E68C",               # Khaki
+    
+    # Unclassified (grays)
+    "Other eukaryote" = "#A9A9A9",      # Dark gray
+    "Other" = "#D3D3D3"                 # Light gray
+  ),
+  
+  # Show metadata legend in final figure
+  # TRUE:  Include legend in exported figure
+  # FALSE: Export legend separately for multi-panel layouts
+  show_metadata_legend = TRUE,
+  
+  # ===================================================================
+  # PHYLUM ANNOTATIONS
+  # ===================================================================
+  # Add abbreviated Phylum names to tip labels
+  # Format: "Genus species [Phy]" where [Phy] is 3-4 letter abbreviation
+  
+  # Enable Phylum annotations on tip labels
+  # TRUE:  Add [Abb] to each tip label
+  # FALSE: Show only genus and species
+  show_phylum_labels = TRUE,
+  
+  # Metadata column name for Phylum classification
+  metadata_phylum_column = "Phylum",
+  
+  #==========================================
+  # CLADE HIGHLIGHTING
+  #==========================================
+  # Visual emphasis for specific taxonomic groups
+  # Adds semi-transparent background color to highlight clades of interest
+  
+  # Enable clade highlighting
+  # TRUE:  Add colored background to specified clades
+  # FALSE: No highlighting
+  highlight_clades = FALSE,
+  
+  # Specify genera to highlight
+  # Vector of genus names (e.g., c("Trichoderma", "Aspergillus"))
+  # Highlights all descendants of specified genera
+  # Only exact matches at start of tip labels will be highlighted
+  highlight_genera = c("Trichoderma"),
+  
+  # Background highlight color
+  # Use light colors to avoid obscuring tree details
+  # Recommended: Use with low alpha transparency (0.2-0.3)
+  # "#4ECDC4": Teal (distinctive but not overwhelming)
+  # "#FFD93D": Yellow (high visibility)
+  # "#A8E6CF": Mint green (soft and pleasant)
+  # "gray10": Current setting (very dark gray)
+  highlight_color = "gray10",
+  
+  # Transparency of highlight background
+  # Lower values = more subtle, higher values = more prominent
+  # Recommended values:
+  #   0.1-0.15: Very subtle (barely visible)
+  #   0.15-0.25: Balanced (RECOMMENDED - noticeable but not distracting)
+  #   0.25-0.4:  More prominent (use for presentations)
+  highlight_alpha = 0.3
+)
+
+cat("✓ Visualization parameters configured\n")
+```
+
+## 3.3 Name Cleaning Parameters
+
+```{r clean_parameters}
+#############################################
+### NAME CLEANING PARAMETERS
+#############################################
+# Control how tip labels are processed for display
+
+clean_params <- list(
+  # Replace underscores with spaces
+  # TRUE: "Genus_species" → "Genus species" (cleaner for display)
+  # FALSE: Keep underscores (maintain original format)
+  replace_underscore = TRUE,
+  
+  # Extract only genus and species (first two words)
+  # TRUE: "Genus_species_123_protein" → "Genus species"
+  # FALSE: Keep all components
+  # RECOMMENDED: TRUE for clean visualization
+  keep_only_genus_species = TRUE,
+  
+  # Add numbers to duplicates
+  # TRUE: "Genus species" appears twice → "Genus species (1)", "Genus species (2)"
+  # FALSE: Keep duplicates as-is (may cause issues in visualization)
+  # RECOMMENDED: TRUE to avoid conflicts
+  add_number_to_duplicates = TRUE,
+  
+  # Maximum label length (truncate longer names)
+  # NULL: No truncation
+  # Number: Max characters (e.g., 40)
+  max_length = NULL,
+  
+  # Remove leading numbers from labels
+  # TRUE: "123 Genus species" → "Genus species"
+  # FALSE: Keep numbers
+  remove_numbers = TRUE
+)
+```
+
+## 3.4 Export Parameters
+
+```{r export_parameters}
+#############################################
+### EXPORT PARAMETERS
+#############################################
+# Configuration for high-quality figure output
+# Uses gene-specific output directory created above
+
+export_params <- list(
+  # SVG output path (vector format - infinite scaling, publication quality)
+  # Advantages: Perfect quality at any size, editable in Illustrator/Inkscape
+  # Structure: phylogenetic/{hormone}/08_figures/{gene}/{gene}_{mode}_meta.svg
+  output_svg = file.path(output_dir, paste0(file, "_", name_mode, "_meta.svg")),
+  
+  # PNG output path (raster format - presentations and web)
+  # Advantages: Universal compatibility, defined resolution
+  # Structure: phylogenetic/{hormone}/08_figures/{gene}/{gene}_{mode}_meta.png
+  output_png = file.path(output_dir, paste0(file, "_", name_mode, "_meta.png")),
+  
+  # Legend-only output (SVG format)
+  # Useful for multi-panel figures where legend is placed separately
+  # Structure: phylogenetic/{hormone}/08_figures/{gene}/{gene}_{mode}_legend.svg
+  output_legend = file.path(output_dir, paste0(file, "_", name_mode, "_legend.svg")),
+  
+  # Figure dimensions (inches)
+  # Small (8-10): Single column journal figures
+  # Medium (12-15): Two-column journal figures
+  # Large (18-20): Posters or large trees
+  width = 15,
+  height = 15,
+  
+  # Resolution for PNG output (dots per inch)
+  # 150 dpi: Draft/preview
+  # 300 dpi: Standard publication quality (RECOMMENDED)
+  # 600 dpi: High-end publications (Nature, Science)
+  # 1200 dpi: Ultra high-quality (may create large files)
+  dpi = 300
+)
+```
+
+# 4. Auxiliary Functions
+
+```{r functions}
+#############################################
+### HELPER FUNCTIONS FOR PHYLOGENETIC ANALYSIS
+#############################################
+# This section contains utility functions for:
+#   - File validation and format checking
+#   - Taxonomic data extraction and parsing
+#   - Label cleaning and standardization
+#   - Metadata loading and matching
+#   - Presence/absence table generation
+#   - Tree statistics and validation
+
+#############################################
+### FUNCTION: Validate file existence and format
+#############################################
+# Verifies that input file exists and has valid Newick extension
+# 
+# Newick format is the standard for representing phylogenetic trees
+# Common file extensions: .nwk, .newick, .tree, .tre
+# 
+# Parameters:
+#   file_path - character string with full path to tree file
+# 
+# Returns:
+#   logical TRUE if validation passes
+# 
+# Stops execution if:
+#   - File does not exist at specified path
+# 
+# Warnings:
+#   - Issues warning if file has non-standard extension
+#     (but allows processing to continue)
+# 
+# Side effects:
+#   - Prints validation confirmation message to console
+# 
+# Example:
+#   validate_file("phylogenetic/CK/07_iqtree/LOG/LOG.nwk")
+
+validate_file <- function(file_path) {
+  # Verify file exists at specified path
+  if (!file.exists(file_path)) {
+    stop(paste("ERROR: File does not exist:", file_path))
+  }
+  
+  # Check for standard Newick format extension
+  # Accepts: .nwk, .newick, .tree, .tre (case-insensitive)
+  if (!grepl("\\.nwk$|\\.newick$|\\.tree$|\\.tre$", file_path, ignore.case = TRUE)) {
+    warning("File does not have standard Newick extension (.nwk, .newick, .tree, .tre)")
+  }
+  
+  cat("✓ File validated:", file_path, "\n")
+  return(TRUE)
+}
+
+#############################################
+### FUNCTION: Validate UniProt ID format
+#############################################
+# Checks if a string matches UniProt accession format specifications
+# 
+# UniProt IDs are standardized protein database accessions with specific format:
+#   - Mix of uppercase letters and numbers
+#   - Length between 6-15 characters
+#   - Cannot be pure numeric
+#   - May contain underscores
+# 
+# Common formats:
+#   - P12345 (Swiss-Prot entry)
+#   - A0A1C7NW11 (TrEMBL entry)
+#   - Q9Y6K1_HUMAN (with species suffix)
+# 
+# Parameters:
+#   id - character string to validate
+# 
+# Returns:
+#   logical TRUE if ID matches UniProt format, FALSE otherwise
+# 
+# Validation criteria:
+#   1. Not empty, NA, or NULL
+#   2. Contains both letters and numbers
+#   3. Length is 6-15 characters
+#   4. Not pure numeric string
+#   5. Contains only uppercase letters, numbers, and underscores
+# 
+# Example:
+#   is_valid_uniprot("A0A1C7NW11")  # Returns TRUE
+#   is_valid_uniprot("12345")       # Returns FALSE (pure numeric)
+#   is_valid_uniprot("ABC")         # Returns FALSE (too short, no numbers)
+
+is_valid_uniprot <- function(id) {
+  # Handle missing or empty values
+  if (is.na(id) || id == "" || is.null(id)) return(FALSE)
+  
+  # Reject pure numeric strings (not valid UniProt format)
+  if (grepl("^[0-9]+$", id)) return(FALSE)
+  
+  # Check length constraints
+  # UniProt IDs are typically 6-15 characters
+  if (nchar(id) < 6) return(FALSE)
+  if (nchar(id) > 15) return(FALSE)
+  
+  # Verify presence of both letters and numbers
+  has_letters <- grepl("[A-Z]", id)
+  has_numbers <- grepl("[0-9]", id)
+  
+  # Valid if contains both letters and numbers
+  # and only uses alphanumeric characters plus underscore
+  if (has_letters && has_numbers && grepl("^[A-Z0-9_]+$", id)) {
+    return(TRUE)
+  }
+  
+  return(FALSE)
+}
+
+#############################################
+### FUNCTION: Extract taxonomic components from tip labels
+#############################################
+# Parses structured tip labels to extract taxonomic and protein information
+# 
+# This function handles the standard output from preprocessing pipelines
+# where sequences are labeled with multiple data fields separated by underscores
+# 
+# Expected label structure:
+#   Genus_species_TaxID_UniprotID_GeneName
+#   Example: Aspergillus_niger_5061_A0A1C7NW11_histidine_kinase
+# 
+# The function handles variable label structures:
+#   - Minimum: Genus_species
+#   - Standard: Genus_species_TaxID
+#   - Full: Genus_species_TaxID_UniprotID_GeneName
+# 
+# Parsing logic by position:
+#   Position 1: Always genus (taxonomic genus)
+#   Position 2: Always species (species epithet)
+#   Position 3: TaxID (NCBI Taxonomy ID, must be numeric)
+#   Position 4: UniProt ID (if valid format) OR first part of protein name
+#   Position 5+: Protein/gene name (joined with underscores if multi-word)
+# 
+# Parameters:
+#   labels - character vector of original tip labels from phylogenetic tree
+# 
+# Returns:
+#   data.frame with columns:
+#     - original_label:       unchanged input label
+#     - genus:               taxonomic genus (first component)
+#     - species:             species epithet (second component)
+#     - taxid:               NCBI Taxonomy ID (third component, numeric only)
+#     - uniprot_id:          UniProt accession (fourth component if valid format)
+#     - protein:             gene/protein description (remaining components)
+#     - genus_species_only:  "Genus species" format for metadata matching
+# 
+# Side effects:
+#   - Prints extraction statistics to console
+#   - Issues warnings for non-numeric TaxIDs
+# 
+# Example:
+#   labels <- c("Aspergillus_niger_5061_A0A1C7NW11_kinase",
+#               "Candida_albicans_237561")
+#   result <- extract_taxid_from_labels(labels)
+
+extract_taxid_from_labels <- function(labels) {
+  
+  cat("\n🔍 Extracting taxonomic components from", length(labels), "labels...\n")
+  
+  # Initialize result data frame with all required columns
+  result <- data.frame(
+    original_label = labels,
+    genus = NA_character_,
+    species = NA_character_,
+    taxid = NA_character_,
+    uniprot_id = NA_character_,
+    protein = NA_character_,
+    genus_species_only = NA_character_,
+    stringsAsFactors = FALSE
+  )
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Parse each label according to structured format
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  for (i in seq_along(labels)) {
+    # Split label by underscore delimiter
+    parts <- strsplit(labels[i], "_")[[1]]
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # CASE 1: Full format with at least genus, species, and TaxID
+    # ─────────────────────────────────────────────────────────────────────
+    if (length(parts) >= 3) {
+      
+      # COMPONENT 1: Genus (mandatory)
+      result$genus[i] <- parts[1]
+      
+      # COMPONENT 2: Species (mandatory)
+      result$species[i] <- parts[2]
+      result$genus_species_only[i] <- paste(parts[1], parts[2])
+      
+      # COMPONENT 3: TaxID (should be numeric)
+      # Validate that third component is purely numeric
+      if (grepl("^[0-9]+$", parts[3])) {
+        result$taxid[i] <- parts[3]
+      } else {
+        warning(paste("Label", i, "has non-numeric TaxID:", parts[3]))
+        next  # Skip to next label
+      }
+      
+      # COMPONENT 4+: UniProt ID and/or Protein Name
+      # This section handles variable label structures
+      
+      if (length(parts) == 3) {
+        # Minimum format: Only Genus_species_TaxID
+        result$uniprot_id[i] <- NA_character_
+        result$protein[i] <- NA_character_
+      
+      } else if (length(parts) == 4) {
+        # Four components: Check if 4th is UniProt ID or protein name
+        if (is_valid_uniprot(parts[4])) {
+          result$uniprot_id[i] <- parts[4]
+          result$protein[i] <- NA_character_
+        } else {
+          result$uniprot_id[i] <- NA_character_
+          result$protein[i] <- parts[4]
+        }
+      
+      } else if (length(parts) >= 5) {
+        # Five or more components: 4th is UniProt ID, rest is protein name
+        if (is_valid_uniprot(parts[4])) {
+          result$uniprot_id[i] <- parts[4]
+          # Join remaining parts with underscores for multi-word protein names
+          result$protein[i] <- paste(parts[5:length(parts)], collapse = "_")
+        } else {
+          # 4th component is not valid UniProt, treat all as protein name
+          result$uniprot_id[i] <- NA_character_
+          result$protein[i] <- paste(parts[4:length(parts)], collapse = "_")
+        }
+      }
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # CASE 2: Minimal format with only genus and species
+    # ─────────────────────────────────────────────────────────────────────
+    } else if (length(parts) == 2) {
+      result$genus[i] <- parts[1]
+      result$species[i] <- parts[2]
+      result$genus_species_only[i] <- paste(parts[1], parts[2])
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # CASE 3: Edge case with only genus
+    # ─────────────────────────────────────────────────────────────────────
+    } else if (length(parts) == 1) {
+      result$genus[i] <- parts[1]
+      result$genus_species_only[i] <- parts[1]
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Generate extraction statistics
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  n_with_genus <- sum(!is.na(result$genus))
+  n_with_species <- sum(!is.na(result$species))
+  n_with_taxid <- sum(!is.na(result$taxid))
+  n_with_uniprot <- sum(!is.na(result$uniprot_id))
+  n_with_protein <- sum(!is.na(result$protein))
+  
+  cat("  ✅ Extraction summary:\n")
+  cat("     • Genus:", n_with_genus, "/", length(labels), 
+      "(", round(n_with_genus/length(labels)*100, 1), "%)\n")
+  cat("     • Species:", n_with_species, "/", length(labels),
+      "(", round(n_with_species/length(labels)*100, 1), "%)\n")
+  cat("     • TaxID:", n_with_taxid, "/", length(labels),
+      "(", round(n_with_taxid/length(labels)*100, 1), "%)\n")
+  cat("     • 🧬 UniProt ID:", n_with_uniprot, "/", length(labels),
+      "(", round(n_with_uniprot/length(labels)*100, 1), "%)\n")
+  cat("     • Protein name:", n_with_protein, "/", length(labels),
+      "(", round(n_with_protein/length(labels)*100, 1), "%)\n\n")
+  
+  return(result)
+}
+
+#############################################
+### FUNCTION: Clean and format tip labels with mapping
+#############################################
+# Processes tip labels for display while maintaining mapping to original names
+# 
+# This function creates clean, readable labels suitable for visualization
+# while preserving the connection to original identifiers. This is essential
+# for:
+#   - Metadata matching (links cleaned names to database records)
+#   - Duplicate handling (ensures unique tip labels)
+#   - Display optimization (removes clutter from labels)
+# 
+# Processing pipeline:
+#   1. Replace underscores with spaces (optional)
+#   2. Normalize whitespace (collapse multiple spaces)
+#   3. Remove leading/trailing whitespace
+#   4. Remove leading numbers (optional)
+#   5. Keep only genus and species (optional)
+#   6. Add numbers to duplicates for uniqueness (essential)
+#   7. Apply length limit (optional)
+# 
+# Parameters:
+#   labels - character vector of original labels from tree
+#   params - list of cleaning parameters (from clean_params global variable)
+#            Contains boolean flags for each processing step
+# 
+# Returns:
+#   list with two elements:
+#     - cleaned: character vector of processed labels ready for display
+#     - mapping: data.frame linking original names to cleaned names
+#                Columns: original_label, clean_label_base, clean_label_final
+#                Essential for metadata matching workflow
+# 
+# Important notes:
+#   - Duplicate numbering happens AFTER base cleaning
+#     This preserves the base name for metadata matching
+#   - Length limiting happens LAST to avoid affecting matches
+# 
+# Example:
+#   labels <- c("123_Aspergillus_niger_5061", "124_Aspergillus_niger_5062")
+#   result <- clean_tip_labels_with_mapping(labels, clean_params)
+#   # Result$cleaned: c("Aspergillus niger (1)", "Aspergillus niger (2)")
+#   # Result$mapping: Links back to original IDs for metadata matching
+
+clean_tip_labels_with_mapping <- function(labels, params = clean_params) {
+  cleaned <- labels
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 1: Replace underscores with spaces for readability
+  # ═══════════════════════════════════════════════════════════════════════
+  if (params$replace_underscore) {
+    cleaned <- str_replace_all(cleaned, "_", " ")
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 2: Normalize whitespace
+  # ═══════════════════════════════════════════════════════════════════════
+  # Collapse multiple spaces to single space
+  cleaned <- str_replace_all(cleaned, "\\s+", " ")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 3: Remove leading and trailing whitespace
+  # ═══════════════════════════════════════════════════════════════════════
+  cleaned <- str_trim(cleaned)
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 4: Remove leading numbers if specified
+  # ═══════════════════════════════════════════════════════════════════════
+  # Some FASTA files have numeric prefixes that are not part of the name
+  if (params$remove_numbers) {
+    cleaned <- str_replace(cleaned, "^\\d+\\s*", "")
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 5: Keep only genus and species (first two words)
+  # ═══════════════════════════════════════════════════════════════════════
+  # This creates standardized binomial nomenclature
+  if (params$keep_only_genus_species) {
+    cleaned <- sapply(strsplit(cleaned, " "), function(x) {
+      if (length(x) >= 2) {
+        paste(x[1], x[2])
+      } else {
+        x[1]  # If only one word, keep it
+      }
+    })
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # CRITICAL: Create mapping BEFORE adding duplicate numbers
+  # ═══════════════════════════════════════════════════════════════════════
+  # This preserves the base name for metadata matching
+  # The base name (without numbers) is used to match with metadata database
+  mapping <- data.frame(
+    original_label = labels,
+    clean_label_base = cleaned,  # Without duplicate numbers
+    stringsAsFactors = FALSE
+  )
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 6: Add numbers to duplicate names to ensure uniqueness
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phylogenetic trees cannot have duplicate tip labels
+  # This step ensures uniqueness while preserving the base name
+  if (params$add_number_to_duplicates) {
+    dup_counts <- table(cleaned)
+    duplicates <- names(dup_counts[dup_counts > 1])
+    
+    for (dup in duplicates) {
+      indices <- which(cleaned == dup)
+      for (j in seq_along(indices)) {
+        # Format: "Genus species (1)", "Genus species (2)", etc.
+        cleaned[indices[j]] <- paste0(cleaned[indices[j]], " (", j, ")")
+      }
+    }
+  }
+  
+  # Add final cleaned labels to mapping
+  # This is the version that will appear in the tree
+  mapping$clean_label_final <- cleaned
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 7: Apply length limit if specified (optional)
+  # ═══════════════════════════════════════════════════════════════════════
+  # Useful for extremely long species names
+  if (!is.null(params$max_length)) {
+    cleaned <- str_trunc(cleaned, width = params$max_length, 
+                        side = "right", ellipsis = "...")
+    mapping$clean_label_final <- cleaned
+  }
+  
+  cat("✓ Labels cleaned:", length(labels), "taxa\n")
+  return(list(cleaned = cleaned, mapping = mapping))
+}
+
+#############################################
+### FUNCTION: Load metadata from file
+#############################################
+# Reads metadata file and validates required columns
+# 
+# The metadata file should contain taxonomic and biological information
+# for organisms in the phylogenetic tree. This function performs validation
+# and preprocessing to ensure compatibility with downstream analyses.
+# 
+# Supported file formats:
+#   - Tab-separated values (.tsv) - PRIMARY FORMAT
+#   - Comma-separated values (.csv) - FALLBACK
+# 
+# Required columns:
+#   - Organism: Species name (must match tree tip labels after cleaning)
+#   - TaxIDs: NCBI Taxonomy ID (numeric identifier)
+# 
+# Optional columns (used if available):
+#   - Kingdom: Taxonomic kingdom (e.g., Fungi, Plantae)
+#   - Phylum: Taxonomic phylum (e.g., Ascomycota, Basidiomycota)
+#   - Early: Early diverging status (Yes/No/Not applicable)
+#   - Considered: Ecological category (e.g., "Soil fungus", "Aquatic")
+# 
+# Parameters:
+#   metadata_path - character string with path to metadata file
+# 
+# Returns:
+#   data.frame with metadata
+#   Includes new column: Organism_clean (trimmed organism names for matching)
+# 
+# Stops execution if:
+#   - File not found at specified path
+#   - Required columns (Organism, TaxIDs) are missing
+#   - File cannot be parsed as TSV or CSV
+# 
+# Side effects:
+#   - Prints loading confirmation and column list
+#   - Cleans TaxID column (removes non-numeric characters like "taxid:" prefix)
+# 
+# Example:
+#   metadata <- load_metadata("data/Metadata.tsv")
+
+load_metadata <- function(metadata_path) {
+  # ═══════════════════════════════════════════════════════════════════════
+  # Verify file existence
+  # ═══════════════════════════════════════════════════════════════════════
+  if (!file.exists(metadata_path)) {
+    stop(paste("ERROR: Metadata file not found:", metadata_path))
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Attempt to read file (TSV first, then CSV as fallback)
+  # ═══════════════════════════════════════════════════════════════════════
+  metadata <- tryCatch({
+    # PRIMARY: Try reading as tab-separated file
+    read.table(metadata_path, header = TRUE, sep = "\t", 
+               stringsAsFactors = FALSE, quote = "", 
+               fill = TRUE, comment.char = "")
+  }, error = function(e) {
+    # FALLBACK: Try reading as comma-separated file
+    tryCatch({
+      read.csv(metadata_path, stringsAsFactors = FALSE)
+    }, error = function(e2) {
+      stop(paste("ERROR: Cannot parse metadata file. Error:", e2$message))
+    })
+  })
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Validate required columns
+  # ═══════════════════════════════════════════════════════════════════════
+  required_cols <- c("Organism", "TaxIDs")
+  missing_cols <- required_cols[!required_cols %in% colnames(metadata)]
+  
+  if (length(missing_cols) > 0) {
+    stop(paste("ERROR: Missing required columns:", 
+               paste(missing_cols, collapse = ", ")))
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Clean TaxID column
+  # ═══════════════════════════════════════════════════════════════════════
+  # Some databases include prefixes like "taxid:" or "NCBITaxon:" 
+  # These must be removed for matching
+  metadata$TaxIDs <- gsub("[^0-9]", "", as.character(metadata$TaxIDs))
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Create cleaned organism name column for matching
+  # ═══════════════════════════════════════════════════════════════════════
+  # Handles trailing/leading whitespace that could prevent matching
+  metadata$Organism_clean <- str_trim(metadata$Organism)
+  
+  cat("✓ Metadata loaded:", nrow(metadata), "organisms\n")
+  cat("  Columns available:", paste(colnames(metadata), collapse = ", "), "\n")
+  
+  return(metadata)
+}
+
+#############################################
+### FUNCTION: Match tree tips with metadata
+#############################################
+# Links tree tip labels with metadata using hierarchical matching strategy
+# 
+# This function implements a three-tier matching system to maximize
+# the number of successful matches between phylogenetic tree tips
+# and the metadata database. The hierarchical approach ensures that
+# the most reliable matching method is attempted first, with fallbacks
+# for cases where primary methods fail.
+# 
+# Matching Strategy (in order of reliability):
+#   1. TaxID extracted from label structure (MOST RELIABLE)
+#      - Direct database identifier
+#      - Unambiguous matching
+#      - Example: "Aspergillus_niger_5061" → TaxID = 5061
+# 
+#   2. Organism name matching (GOOD RELIABILITY)
+#      - Uses cleaned "Genus species" format
+#      - Standardized names for consistent matching
+#      - Example: "Aspergillus niger" matches metadata
+# 
+#   3. TaxID from FASTA header prefix (FALLBACK)
+#      - Handles legacy FASTA formats
+#      - Extracts TaxID from ">12345|..." format
+#      - Less common but useful for compatibility
+# 
+# Parameters:
+#   tree_data - data.frame from extract_taxid_from_labels()
+#               Contains parsed taxonomic components
+#   metadata  - data.frame from load_metadata()
+#               Contains organism information and metadata
+# 
+# Returns:
+#   list with two elements:
+#     - data: tree_data with added metadata columns
+#             (Kingdom, Phylum, Early, Considered, match status)
+#     - report: list with matching statistics
+#               (total, matched, unmatched, match rates by method)
+# 
+# Side effects:
+#   - None (pure function, no file I/O or printing)
+# 
+# Example:
+#   tree_data <- extract_taxid_from_labels(tree$tip.label)
+#   metadata <- load_metadata("data/Metadata.tsv")
+#   result <- match_tree_metadata(tree_data, metadata)
+#   print_matching_report(result)  # Display results
+
+match_tree_metadata <- function(tree_data, metadata) {
+  matched <- tree_data
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Initialize metadata columns with default values
+  # ═══════════════════════════════════════════════════════════════════════
+  matched$metadata_match <- FALSE            # Boolean: was match successful?
+  matched$match_method <- NA_character_      # Which method succeeded?
+  matched$Kingdom <- NA_character_           # Taxonomic kingdom
+  matched$Phylum <- NA_character_            # Taxonomic phylum
+  matched$Early <- NA_character_             # Early diverging status
+  matched$Considered <- NA_character_        # Ecological category
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Initialize counters for matching statistics
+  # ═══════════════════════════════════════════════════════════════════════
+  match_by_taxid <- 0           # Matches via extracted TaxID
+  match_by_name <- 0            # Matches via organism name
+  match_by_partial_taxid <- 0  # Matches via FASTA header TaxID
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Attempt matching for each tip in the tree
+  # ═══════════════════════════════════════════════════════════════════════
+  for (i in seq_len(nrow(matched))) {
+    meta_idx <- integer(0)         # Index in metadata (empty if no match)
+    match_method <- NA_character_  # Method that succeeded
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # TIER 1: Match by extracted TaxID (most reliable)
+    # ─────────────────────────────────────────────────────────────────────
+    if (!is.na(matched$taxid[i]) && matched$taxid[i] != "") {
+      # Clean TaxID (extract only numeric characters)
+      # Some labels may have prefixes like "taxid:" that need removal
+      clean_taxid <- gsub("[^0-9]", "", matched$taxid[i])
+      
+      if (nchar(clean_taxid) > 0) {
+        # Search for this TaxID in metadata
+        meta_idx <- which(metadata$TaxIDs == clean_taxid)
+        
+        if (length(meta_idx) > 0) {
+          match_method <- "TaxID_extracted"
+          match_by_taxid <- match_by_taxid + 1
+        }
+      }
+    }
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # TIER 2: Match by organism name (fallback if TaxID match failed)
+    # ─────────────────────────────────────────────────────────────────────
+    if (length(meta_idx) == 0 && !is.na(matched$genus_species_only[i])) {
+      # Search using standardized "Genus species" format
+      meta_idx <- which(metadata$Organism_clean == matched$genus_species_only[i])
+      
+      if (length(meta_idx) > 0) {
+        match_method <- "Organism_name"
+        match_by_name <- match_by_name + 1
+      }
+    }
+    
+    # ─────────────────────────────────────────────────────────────────────
+    # TIER 3: Match by TaxID at start of label (legacy FASTA format)
+    # ─────────────────────────────────────────────────────────────────────
+    if (length(meta_idx) == 0) {
+      original_label <- matched$original_label[i]
+      
+      # Extract numbers at beginning after ">" (FASTA header format)
+      # Matches patterns like: ">12345|..." or ">12345 ..."
+      taxid_match <- stringr::str_match(original_label, "^>?([0-9]+)[|\\s]")
+      
+      if (!is.na(taxid_match[1, 2])) {
+        partial_taxid <- taxid_match[1, 2]
+        
+        # Search for this TaxID in metadata
+        meta_idx <- which(metadata$TaxIDs == partial_taxid)
+        
+        if (length(meta_idx) > 0) {
+          match_method <- "TaxID_partial"
+          match_by_partial_taxid <- match_by_partial_taxid + 1
+          
+          # Update taxid in matched data for future reference
+          matched$taxid[i] <- partial_taxid
+        }
+      }
+    }
+    
+    # ═══════════════════════════════════════════════════════════════════
+    # Transfer metadata if match was found
+    # ═══════════════════════════════════════════════════════════════════
+    if (length(meta_idx) > 0) {
+      matched$metadata_match[i] <- TRUE
+      matched$match_method[i] <- match_method
+      
+      # Transfer Kingdom if column exists in metadata
+      if ("Kingdom" %in% colnames(metadata)) {
+        matched$Kingdom[i] <- metadata$Kingdom[meta_idx[1]]
+      }
+      
+      # Transfer Phylum if column exists in metadata
+      if ("Phylum" %in% colnames(metadata)) {
+        matched$Phylum[i] <- metadata$Phylum[meta_idx[1]]
+      }
+      
+      # Transfer Early diverging status if column exists
+      if ("Early" %in% colnames(metadata)) {
+        matched$Early[i] <- metadata$Early[meta_idx[1]]
+      }
+      
+      # Transfer Ecological Category if column exists
+      if ("Considered" %in% colnames(metadata)) {
+        matched$Considered[i] <- metadata$Considered[meta_idx[1]]
+      }
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Replace NA values with "Unknown" for visualization compatibility
+  # ═══════════════════════════════════════════════════════════════════════
+  matched$Kingdom[is.na(matched$Kingdom)] <- "Unknown"
+  matched$Phylum[is.na(matched$Phylum)] <- "Unknown"
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Generate comprehensive matching report
+  # ═══════════════════════════════════════════════════════════════════════
+  report <- list(
+    total_tips = nrow(matched),
+    matched = sum(matched$metadata_match),
+    unmatched = sum(!matched$metadata_match),
+    match_rate = round(sum(matched$metadata_match) / nrow(matched) * 100, 1),
+    by_taxid = match_by_taxid,
+    by_name = match_by_name,
+    by_partial_taxid = match_by_partial_taxid
+  )
+  
+  return(list(data = matched, report = report))
+}
+
+#############################################
+### FUNCTION: Print metadata matching report
+#############################################
+# Displays detailed diagnostic report of tree-metadata matching success
+# 
+# This function provides essential quality control information for
+# assessing the success of the metadata matching process. The report
+# helps identify:
+#   - Overall matching success rate
+#   - Which matching methods were most effective
+#   - Which organisms failed to match (for troubleshooting)
+#   - Kingdom distribution of matched organisms
+# 
+# Parameters:
+#   match_result - list from match_tree_metadata()
+#                  Contains both matched data and statistics
+# 
+# Returns:
+#   NULL (invisible)
+# 
+# Side effects:
+#   - Prints formatted report to console with:
+#     * Overall statistics (total, matched, unmatched, percentage)
+#     * Breakdown by matching method
+#     * List of unmatched tips (up to 10 examples)
+#     * Kingdom distribution of matched organisms
+# 
+# Example:
+#   result <- match_tree_metadata(tree_data, metadata)
+#   print_matching_report(result)
+
+print_matching_report <- function(match_result) {
+  rep <- match_result$report
+  data <- match_result$data
+  
+  cat("\n╔═══════════════════════════════════════════════════════════════╗\n")
+  cat("║         TREE-METADATA MATCHING REPORT (ENHANCED)            ║\n")
+  cat("╚═══════════════════════════════════════════════════════════════╝\n\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Overall matching statistics
+  # ═══════════════════════════════════════════════════════════════════════
+  cat("📊 Overall Summary:\n")
+  cat("   Total tips in tree:", rep$total_tips, "\n")
+  cat("   ✅ Successfully matched:", rep$matched, "(", rep$match_rate, "%)\n")
+  cat("   ❌ Failed to match:", rep$unmatched, "\n\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Breakdown by matching method
+  # ═══════════════════════════════════════════════════════════════════════
+  cat("🔍 Matching Method Breakdown:\n")
+  cat("   • Tier 1 (Extracted TaxID):", rep$by_taxid, "\n")
+  cat("   • Tier 2 (Organism name):", rep$by_name, "\n")
+  cat("   • Tier 3 (Partial TaxID from header):", rep$by_partial_taxid, "\n\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Display unmatched tips for troubleshooting
+  # ═══════════════════════════════════════════════════════════════════════
+  if (rep$unmatched > 0) {
+    unmatched <- data[!data$metadata_match, ]
+    cat("⚠️  Unmatched Tips (showing first 10):\n")
+    cat("   These organisms were not found in metadata and need review:\n\n")
+    
+    for (i in seq_len(min(10, nrow(unmatched)))) {
+      cat("   ", i, ". ", unmatched$genus_species_only[i], "\n", sep = "")
+      cat("      TaxID: ", 
+          ifelse(is.na(unmatched$taxid[i]), "Not extracted", unmatched$taxid[i]), "\n", sep = "")
+      cat("      Original label: ", substr(unmatched$original_label[i], 1, 60), "...\n\n", sep = "")
+    }
+    
+    if (nrow(unmatched) > 10) {
+      cat("   ... and", nrow(unmatched) - 10, "more unmatched tip(s)\n\n")
+    }
+    
+    cat("   💡 Tip: Check if these organisms exist in your metadata file\n")
+    cat("      or if their names/TaxIDs need standardization.\n\n")
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Display Kingdom distribution of matched organisms
+  # ═══════════════════════════════════════════════════════════════════════
+  matched_data <- data[data$metadata_match, ]
+  if (nrow(matched_data) > 0 && !all(is.na(matched_data$Kingdom))) {
+    cat("🌍 Kingdom Distribution (matched organisms only):\n")
+    kingdom_table <- table(matched_data$Kingdom)
+    for (kingdom in names(sort(kingdom_table, decreasing = TRUE))) {
+      cat("   • ", sprintf("%-15s", kingdom), ": ", kingdom_table[kingdom], "\n", sep = "")
+    }
+  }
+  
+  cat("\n═══════════════════════════════════════════════════════════════\n\n")
+}
+
+#############################################
+### FUNCTION: Generate missing metadata template
+#############################################
+# Creates a template file for organisms not found in metadata database
+# 
+# This function facilitates the process of adding new organisms to the
+# metadata by generating a pre-formatted template with all required columns.
+# Users can fill in the "[TO_FILL]" placeholders and add the data to their
+# main metadata file.
+# 
+# Parameters:
+#   match_result - list from match_tree_metadata()
+#                  Contains matching results and unmatched organisms
+# 
+# Returns:
+#   data.frame template with missing organisms, or NULL if all matched
+# 
+# Side effects:
+#   - Writes TSV template file to presence_absence_dir
+#   - Filename: {gene}_missing_Metadata.tsv
+# 
+# Template columns:
+#   - Organism: Species name (pre-filled from tree)
+#   - TaxIDs: NCBI Taxonomy ID (pre-filled if available, otherwise "[TO_FILL]")
+#   - Considered, Kingdom, Phylum, Early: "[TO_FILL]" placeholders
+#   - Interaction fields: "[TO_FILL]" placeholders
+# 
+# Example:
+#   result <- match_tree_metadata(tree_data, metadata)
+#   template <- generate_missing_metadata(result)
+#   # User fills in template and adds to main metadata file
+
+generate_missing_metadata <- function(match_result) {
+  # Extract organisms that failed to match
+  missing <- match_result$data[!match_result$data$metadata_match, ]
+  
+  if (nrow(missing) == 0) {
+    cat("✓ All organisms successfully matched with metadata!\n")
+    return(NULL)
+  }
+  
+  cat("📝 Creating metadata template for", nrow(missing), "unmatched organism(s)...\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Create template with missing organisms
+  # ═══════════════════════════════════════════════════════════════════════
+  template <- data.frame(
+    Organism = missing$genus_species_only,
+    TaxIDs = ifelse(is.na(missing$taxid), "[TO_FILL]", missing$taxid),
+    Considered = "[TO_FILL]",
+    Kingdom = "[TO_FILL]",
+    Phylum = "[TO_FILL]",
+    Early = "[TO_FILL]",
+    Interaction = "[TO_FILL]",
+    OrganismInteracts = "[TO_FILL]",
+    TypeInteraction = "[TO_FILL]",
+    stringsAsFactors = FALSE
+  )
+  
+  # Remove duplicate organisms (same species appearing multiple times)
+  template <- template[!duplicated(template$Organism), ]
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Write template to file
+  # ═══════════════════════════════════════════════════════════════════════
+  output_path <- file.path(presence_absence_dir,
+                          paste0(file, "_missing_Metadata.tsv"))
+  
+  write.table(template,
+              file = output_path,
+              sep = "\t", 
+              row.names = FALSE,
+              quote = FALSE)
+  
+  cat("✓ Template saved:", output_path, "\n")
+  cat("  Please fill in '[TO_FILL]' values and add to main metadata file.\n")
+  
+  return(template)
+}
+
+#############################################
+### FUNCTION: Get tree statistics
+#############################################
+# Calculates basic phylogenetic tree characteristics
+# 
+# Provides essential information about tree structure and data availability
+# Used for quality control and method selection (e.g., bootstrap display)
+# 
+# Parameters:
+#   tree - phylo object from ape::read.tree()
+# 
+# Returns:
+#   list with tree characteristics:
+#     - n_tips: Number of terminal nodes (taxa)
+#     - n_nodes: Number of internal nodes
+#     - total_length: Sum of all branch lengths
+#     - is_rooted: Boolean, whether tree has a root
+#     - is_binary: Boolean, whether tree is fully bifurcating
+#     - has_bootstrap: Boolean, presence of node labels (bootstrap values)
+#     - has_branch_lengths: Boolean, presence of branch length data
+# 
+# Example:
+#   tree <- read.tree("gene.nwk")
+#   stats <- get_tree_stats(tree)
+#   print_tree_stats(stats)
+
+get_tree_stats <- function(tree) {
+  list(
+    n_tips = length(tree$tip.label),
+    n_nodes = tree$Nnode,
+    total_length = sum(tree$edge.length, na.rm = TRUE),
+    is_rooted = is.rooted(tree),
+    is_binary = is.binary(tree),
+    has_bootstrap = !is.null(tree$node.label) && any(!is.na(tree$node.label)),
+    has_branch_lengths = !is.null(tree$edge.length) && any(!is.na(tree$edge.length))
+  )
+}
+
+#############################################
+### FUNCTION: Print tree statistics
+#############################################
+# Displays formatted tree statistics for quality control
+# 
+# Parameters:
+#   stats - list from get_tree_stats()
+# 
+# Returns:
+#   NULL (invisible)
+# 
+# Side effects:
+#   Prints formatted statistics to console
+
+print_tree_stats <- function(stats) {
+  cat("\n╔═══════════════════════════════════════╗\n")
+  cat("║        TREE STATISTICS                ║\n")
+  cat("╚═══════════════════════════════════════╝\n\n")
+  
+  cat("📊 Tree Structure:\n")
+  cat("   Taxa (tips):", stats$n_tips, "\n")
+  cat("   Internal nodes:", stats$n_nodes, "\n")
+  cat("   Total tree length:", round(stats$total_length, 4), "\n\n")
+  
+  cat("🔧 Tree Properties:\n")
+  cat("   Rooted:", ifelse(stats$is_rooted, "Yes ✓", "No ✗"), "\n")
+  cat("   Binary (fully bifurcating):", ifelse(stats$is_binary, "Yes ✓", "No ✗"), "\n\n")
+  
+  cat("📈 Available Data:\n")
+  cat("   Bootstrap values:", ifelse(stats$has_bootstrap, "Yes ✓", "No ✗"), "\n")
+  cat("   Branch lengths:", ifelse(stats$has_branch_lengths, "Yes ✓", "No ✗"), "\n\n")
+}
+
+#############################################
+### FUNCTION: Generate presence/absence table for single gene
+#############################################
+# Creates a binary table indicating which organisms are present in the tree
+# 
+# This function generates a comprehensive presence/absence matrix that:
+#   - Lists all organisms from metadata
+#   - Marks which organisms appear in the phylogenetic tree
+#   - Includes UniProt IDs and protein names when available
+#   - Adds taxonomic information (TaxID, Kingdom, Phylum, Early status)
+#   - Handles organisms found in tree but not in metadata
+# 
+# Parameters:
+#   tree_tips          - character vector of cleaned tip labels from the tree
+#   metadata           - data.frame with organism information
+#   tree_with_metadata - data.frame with parsed tree data (optional but recommended)
+#                        Used to extract UniProt IDs and protein names
+#   gene_name          - character string with gene identifier (e.g., "IPT", "LOG")
+#   output_file        - character string with path to save TSV file
+# 
+# Returns:
+#   data.frame with presence/absence information
+#   Columns: Organism, {gene_name}, UniProt_ID, Protein, TaxIDs, Kingdom, Phylum, Early
+# 
+# Side effects:
+#   - Writes TSV file to disk at output_file path
+#   - Prints progress and statistics to console
+# 
+# Example:
+#   tree <- read.tree("LOG.nwk")
+#   metadata <- load_metadata("data/Metadata.tsv")
+#   tree_data <- extract_taxid_from_labels(tree$tip.label)
+#   
+#   table <- generate_presence_absence_table(
+#     tree_tips = tree$tip.label,
+#     metadata = metadata,
+#     tree_with_metadata = tree_data,
+#     gene_name = "LOG",
+#     output_file = "output/LOG_presence.tsv"
+#   )
+
+generate_presence_absence_table <- function(tree_tips, 
+                                             metadata, 
+                                             tree_with_metadata = NULL, 
+                                             gene_name, 
+                                             output_file) {
+  
+  cat("\n🔍 Generating presence/absence table for:", gene_name, "\n")
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # CRITICAL: Clean labels BEFORE comparing
+  # Remove [Phy] and numbers (1), (2) for matching
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  
+  clean_for_matching <- function(labels) {
+    # Step 1: Remove [Phy] at the end
+    labels <- gsub("\\s*\\[[^]]+\\]\\s*$", "", labels)
+    # Step 2: Remove (1), (2), etc.
+    labels <- gsub("\\s*\\([0-9]+\\)\\s*$", "", labels)
+    # Step 3: Trim whitespace
+    labels <- trimws(labels)
+    return(labels)
+  }
+  
+  # Clean tree tips for matching
+  tree_tips_clean <- clean_for_matching(tree_tips)
+  
+  # STEP 1: Get all organism names from metadata (reference)
+  all_organisms <- metadata$Organism_clean
+  
+  # STEP 2: Identify organisms in tree (using cleaned labels)
+  organisms_in_tree_clean <- unique(tree_tips_clean)
+  new_organisms <- setdiff(organisms_in_tree_clean, all_organisms)
+  
+  if (length(new_organisms) > 0) {
+    cat("  ⚠️  Found", length(new_organisms), "organisms in tree not present in metadata\n")
+    cat("     Adding them to the table...\n")
+  }
+  
+  # STEP 3: Combine all organisms
+  complete_organism_list <- c(all_organisms, new_organisms)
+  
+  # STEP 4: Create presence/absence column
+  presence <- complete_organism_list %in% organisms_in_tree_clean
+  
+  # STEP 5: Build the table
+  presence_table <- data.frame(
+    Organism = complete_organism_list,
+    stringsAsFactors = FALSE
+  )
+  
+  presence_table[[gene_name]] <- presence
+  presence_table$UniProt_ID <- NA_character_
+  presence_table$Protein <- NA_character_
+  
+  # STEP 6: Add metadata columns + UniProt ID + Protein name
+  for (i in seq_len(nrow(presence_table))) {
+    org <- presence_table$Organism[i]
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # SEARCH IN tree_with_metadata for UniProt ID
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (!is.null(tree_with_metadata)) {
+      # Search using genus_species_only (already clean)
+      tree_idx <- which(tree_with_metadata$genus_species_only == org)
+      
+      if (length(tree_idx) > 0) {
+        if ("uniprot_id" %in% colnames(tree_with_metadata)) {
+          # Get ALL UniProt IDs for this organism
+          uniprot_ids <- tree_with_metadata$uniprot_id[tree_idx]
+          # Filter out NAs
+          uniprot_ids <- uniprot_ids[!is.na(uniprot_ids) & uniprot_ids != ""]
+          # Join with commas if multiple exist
+          if (length(uniprot_ids) > 0) {
+            presence_table$UniProt_ID[i] <- paste(unique(uniprot_ids), collapse = ", ")
+          }
+        }
+        
+        # ✅ ADD PROTEIN NAME
+        if ("protein" %in% colnames(tree_with_metadata)) {
+          protein_names <- tree_with_metadata$protein[tree_idx]
+          protein_names <- protein_names[!is.na(protein_names) & protein_names != ""]
+          if (length(protein_names) > 0) {
+            presence_table$Protein[i] <- paste(unique(protein_names), collapse = ", ")
+          }
+        }
+      }
+    }
+    
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # Search in metadata for TaxID, Kingdom, etc.
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    meta_idx <- which(metadata$Organism_clean == org)
+    
+    if (length(meta_idx) > 0) {
+      if ("TaxIDs" %in% colnames(metadata)) {
+        presence_table$TaxIDs[i] <- metadata$TaxIDs[meta_idx[1]]
+      }
+      if ("Kingdom" %in% colnames(metadata)) {
+        presence_table$Kingdom[i] <- metadata$Kingdom[meta_idx[1]]
+      }
+      if ("Phylum" %in% colnames(metadata)) {
+        presence_table$Phylum[i] <- metadata$Phylum[meta_idx[1]]
+      }
+      if ("Early" %in% colnames(metadata)) {
+        presence_table$Early[i] <- metadata$Early[meta_idx[1]]
+      }
+    } else {
+      presence_table$TaxIDs[i] <- NA_character_
+      presence_table$Kingdom[i] <- "Unknown"
+      presence_table$Phylum[i] <- "Unknown"
+      presence_table$Early[i] <- NA_character_
+    }
+  }
+  
+  # STEP 7: Reorder columns
+  column_order <- c("Organism", gene_name)
+  
+  if ("UniProt_ID" %in% colnames(presence_table)) {
+    column_order <- c(column_order, "UniProt_ID")
+  }
+  if ("Protein" %in% colnames(presence_table)) {
+    column_order <- c(column_order, "Protein")
+  }
+  
+  remaining <- setdiff(colnames(presence_table), column_order)
+  column_order <- c(column_order, remaining)
+  
+  presence_table <- presence_table[, column_order]
+  
+  # STEP 8: Sort
+  presence_table <- presence_table[order(-presence_table[[gene_name]], 
+                                          presence_table$Organism), ]
+  
+  # STEP 9: Write to file
+  write.table(
+    presence_table,
+    file = output_file,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE,
+    na = ""
+  )
+  
+  # STEP 10: Report
+  n_present <- sum(presence_table[[gene_name]])
+  n_total <- nrow(presence_table)
+  percentage <- round(n_present / n_total * 100, 1)
+  
+  if ("UniProt_ID" %in% colnames(presence_table)) {
+    n_with_uniprot <- sum(!is.na(presence_table$UniProt_ID) & 
+                           presence_table$UniProt_ID != "")
+    uniprot_pct <- round(n_with_uniprot / n_present * 100, 1)
+    
+    cat("  ✅ Table created successfully\n")
+    cat("     Organisms present:", n_present, "/", n_total, "(", percentage, "%)\n")
+    cat("     With UniProt ID:", n_with_uniprot, "/", n_present, 
+        "(", uniprot_pct, "% of present)\n")
+  } else {
+    cat("  ✅ Table created successfully\n")
+    cat("     Organisms present:", n_present, "/", n_total, "(", percentage, "%)\n")
+  }
+  
+  cat("     Saved to:", output_file, "\n")
+  
+  return(presence_table)
+}
+
+#############################################
+### FUNCTION: Merge individual gene tables into consolidated hormone table
+#############################################
+# Combines multiple single-gene presence/absence tables into one master table
+# 
+# This function consolidates data from multiple genes analyzed in the same
+# hormone/project category. It's essential for comparative genomics analyses
+# where you want to see which organisms have which genes.
+# 
+# The merging process:
+#   1. Reads all individual gene TSV files from a directory
+#   2. Starts with organisms from metadata
+#   3. Adds organisms found in trees but not in metadata
+#   4. Creates binary columns for each gene
+#   5. Calculates N_Genes (how many genes each organism has)
+#   6. Sorts by gene count (descending)
+# 
+# Parameters:
+#   presence_absence_dir - path to directory containing individual gene tables
+#                          Expected files: {gene}.tsv
+#   output_file          - path to save the consolidated TSV file
+#   metadata             - data.frame with organism information
+# 
+# Returns:
+#   data.frame with consolidated presence/absence information
+#   Columns: Organism, TaxIDs, Kingdom, Phylum, Early, {gene1}, {gene2}, ..., N_Genes
+# 
+# Side effects:
+#   - Writes consolidated TSV file to disk
+#   - Prints detailed progress and statistics
+# 
+# Example:
+#   metadata <- load_metadata("data/Metadata.tsv")
+#   
+#   consolidated <- merge_gene_tables(
+#     presence_absence_dir = "phylogenetic/CK/09_presence-absence",
+#     output_file = "phylogenetic/CK/merged-genes.tsv",
+#     metadata = metadata
+#   )
+
+merge_gene_tables <- function(presence_absence_dir, output_file, metadata) {
+  
+  cat("\n📊 Merging gene tables for hormone...\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 1: Find all individual gene tables
+  # ═══════════════════════════════════════════════════════════════════════
+  gene_files <- list.files(
+    presence_absence_dir,
+    pattern = "\\.tsv$",
+    full.names = TRUE
+  )
+  
+  # Exclude metadata template files
+  gene_files <- gene_files[!grepl("_missing_metadata\\.tsv$", gene_files)]
+  
+  excluded_files <- list.files(
+    presence_absence_dir,
+    pattern = "_missing_metadata\\.tsv$",
+    full.names = FALSE
+  )
+  
+  if (length(gene_files) == 0) {
+    cat("  ⚠️  No gene tables found in:", presence_absence_dir, "\n")
+    return(NULL)
+  }
+  
+  if (length(excluded_files) > 0) {
+    cat("  ℹ️  Excluded metadata template files:", 
+        paste(excluded_files, collapse = ", "), "\n")
+  }
+  
+  cat("  Found", length(gene_files), "gene table(s) to merge\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 2: Initialize merged table with all organisms from metadata
+  # ═══════════════════════════════════════════════════════════════════════
+  all_organisms <- metadata$Organism_clean
+  
+  merged_table <- data.frame(
+    Organism = all_organisms,
+    stringsAsFactors = FALSE
+  )
+  
+  # Add metadata columns
+  if ("TaxIDs" %in% colnames(metadata)) {
+    merged_table$TaxIDs <- metadata$TaxIDs
+  }
+  if ("Kingdom" %in% colnames(metadata)) {
+    merged_table$Kingdom <- metadata$Kingdom
+  }
+  if ("Phylum" %in% colnames(metadata)) {
+    merged_table$Phylum <- metadata$Phylum
+  }
+  if ("Early" %in% colnames(metadata)) {
+    merged_table$Early <- metadata$Early
+  }
+  
+  # Track organisms found in trees but not in metadata
+  all_new_organisms <- character()
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 3: Read and merge each gene table
+  # ═══════════════════════════════════════════════════════════════════════
+  for (gene_file in gene_files) {
+    # Extract gene name from filename (remove .tsv extension)
+    gene_name <- tools::file_path_sans_ext(basename(gene_file))
+    
+    cat("  Processing:", gene_name, "\n")
+    
+    # Read the gene table
+    gene_table <- tryCatch({
+      read.table(
+        gene_file,
+        header = TRUE,
+        sep = "\t",
+        stringsAsFactors = FALSE,
+        quote = "",
+        comment.char = ""
+      )
+    }, error = function(e) {
+      cat("    ⚠️  Error reading file:", e$message, "\n")
+      return(NULL)
+    })
+    
+    if (is.null(gene_table)) next
+    
+    # Identify new organisms (in tree but not in metadata)
+    new_organisms <- setdiff(gene_table$Organism, all_organisms)
+    
+    if (length(new_organisms) > 0) {
+      cat("    Adding", length(new_organisms), "new organism(s) from this gene\n")
+      all_new_organisms <- unique(c(all_new_organisms, new_organisms))
+    }
+    
+    # Add gene column to merged table
+    # Match organisms and transfer presence/absence values
+    gene_col_name <- gene_name
+    merged_table[[gene_col_name]] <- FALSE  # Initialize with FALSE (absent)
+    
+    for (i in seq_len(nrow(gene_table))) {
+      org <- gene_table$Organism[i]
+      presence_value <- gene_table[[gene_name]][i]
+      
+      # Find matching organism in merged table
+      idx <- which(merged_table$Organism == org)
+      
+      if (length(idx) > 0) {
+        # Update presence value
+        merged_table[[gene_col_name]][idx[1]] <- presence_value
+      }
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 4: Add new organisms to merged table
+  # ═══════════════════════════════════════════════════════════════════════
+  if (length(all_new_organisms) > 0) {
+    cat("\n  📝 Adding", length(all_new_organisms), 
+        "organism(s) found in trees but not in metadata\n")
+    
+    # Create rows for new organisms
+    new_rows <- data.frame(
+      Organism = all_new_organisms,
+      TaxIDs = NA_character_,
+      Kingdom = "Unknown",
+      Phylum = "Unknown",
+      Early = NA_character_,
+      stringsAsFactors = FALSE
+    )
+    
+    # Add gene columns with FALSE values (will be updated below)
+    gene_columns <- setdiff(colnames(merged_table), 
+                            c("Organism", "TaxIDs", "Kingdom", "Phylum", "Early"))
+    
+    for (gene_col in gene_columns) {
+      new_rows[[gene_col]] <- FALSE
+    }
+    
+    # Re-read gene tables to get presence values for new organisms
+    for (gene_file in gene_files) {
+      gene_name <- tools::file_path_sans_ext(basename(gene_file))
+      gene_table <- read.table(gene_file, header = TRUE, sep = "\t", 
+                               stringsAsFactors = FALSE, quote = "", 
+                               comment.char = "")
+      
+      for (i in seq_len(nrow(new_rows))) {
+        org <- new_rows$Organism[i]
+        gene_idx <- which(gene_table$Organism == org)
+        
+        if (length(gene_idx) > 0) {
+          new_rows[[gene_name]][i] <- gene_table[[gene_name]][gene_idx[1]]
+        }
+      }
+    }
+    
+    # Append new rows to merged table
+    merged_table <- rbind(merged_table, new_rows)
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 5: Calculate summary statistics per organism
+  # ═══════════════════════════════════════════════════════════════════════
+  gene_columns <- setdiff(colnames(merged_table), 
+                          c("Organism", "TaxIDs", "Kingdom", "Phylum", "Early"))
+  
+  # Count how many genes each organism is present in
+  merged_table$N_Genes <- rowSums(merged_table[, gene_columns, drop = FALSE])
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 6: Sort table by number of genes (descending) and organism name
+  # ═══════════════════════════════════════════════════════════════════════
+  merged_table <- merged_table[order(-merged_table$N_Genes, 
+                                      merged_table$Organism), ]
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 7: Write consolidated table
+  # ═══════════════════════════════════════════════════════════════════════
+  write.table(
+    merged_table,
+    file = output_file,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE,
+    na = ""
+  )
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 8: Generate summary report
+  # ═══════════════════════════════════════════════════════════════════════
+  cat("\n╔═══════════════════════════════════════╗\n")
+  cat("║   CONSOLIDATED TABLE SUMMARY          ║\n")
+  cat("╚═══════════════════════════════════════╝\n\n")
+  
+  cat("📊 Table dimensions:\n")
+  cat("   Total organisms:", nrow(merged_table), "\n")
+  cat("   Total genes:", length(gene_columns), "\n\n")
+  
+  cat("🧬 Gene coverage (organisms with gene present):\n")
+  for (gene_col in gene_columns) {
+    n_present <- sum(merged_table[[gene_col]])
+    percentage <- round(n_present / nrow(merged_table) * 100, 1)
+    cat("   ", sprintf("%-15s", gene_col), ": ", 
+        sprintf("%3d", n_present), "/", nrow(merged_table), 
+        " (", sprintf("%5.1f", percentage), "%)\n", sep = "")
+  }
+  
+  cat("\n🌍 Organism distribution:\n")
+  cat("   From metadata:", sum(merged_table$Kingdom != "Unknown"), "\n")
+  cat("   New (not in metadata):", sum(merged_table$Kingdom == "Unknown"), "\n")
+  
+  cat("\n💾 Output file:\n")
+  cat("   Location:", output_file, "\n")
+  cat("   Dimensions:", nrow(merged_table), "organisms ×", 
+      length(gene_columns), "genes\n")
+  cat("═══════════════════════════════════════\n\n")
+  
+  return(merged_table)
+}
+
+#############################################
+### FUNCTION: Validate metadata configuration
+#############################################
+# Performs pre-visualization validation of metadata and visualization parameters
+# 
+# This function prevents common errors by checking:
+#   - Conflicting visualization options (e.g., both branch color AND background)
+#   - Required columns exist in metadata
+#   - Categorical variables have appropriate number of levels
+# 
+# Validation categories:
+#   1. Kingdom visualization conflicts
+#   2. Text visualization conflicts
+#   3. Column existence checks
+#   4. Early divergence value range
+#   5. Strip column availability
+# 
+# Parameters:
+#   tree_data  - data.frame with tree tips and metadata columns
+#   viz_params - list with visualization parameters (from viz_params global)
+# 
+# Returns:
+#   list with three elements:
+#     - valid: logical, TRUE if no critical errors
+#     - messages: character vector of error messages (empty if valid)
+#     - warnings: character vector of warning messages (non-critical issues)
+# 
+# Example:
+#   result <- validate_metadata_config(tree_with_metadata, viz_params)
+#   if (!result$valid) {
+#     print_validation_report(result)
+#     stop("Fix validation errors before proceeding")
+#   }
+
+validate_metadata_config <- function(tree_data, viz_params) {
+  messages <- character(0)
+  warnings <- character(0)
+  valid <- TRUE
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # VALIDATION 1: Check only one Kingdom option active for branches
+  # ═══════════════════════════════════════════════════════════════════════
+  branch_options <- c(viz_params$kingdom_color_branch, 
+                      viz_params$kingdom_background_clade)
+  if (sum(branch_options, na.rm = TRUE) > 1) {
+    warnings <- c(warnings, 
+      "⚠️ WARNING: Both 'kingdom_color_branch' AND 'kingdom_background_clade' are active")
+    warnings <- c(warnings,
+      "   Recommendation: Use only one. Colored branches OR background highlighting.")
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # VALIDATION 2: Check only one Kingdom option active for text
+  # ═══════════════════════════════════════════════════════════════════════
+  text_options <- c(viz_params$kingdom_color_text, 
+                    viz_params$kingdom_background_text)
+  if (sum(text_options, na.rm = TRUE) > 1) {
+    warnings <- c(warnings,
+      "⚠️ WARNING: Both 'kingdom_color_text' AND 'kingdom_background_text' are active")
+    warnings <- c(warnings,
+      "   Recommendation: Use only one. Colored text OR background highlighting.")
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # VALIDATION 3: Check Kingdom column exists if any Kingdom option is activated
+  # ═══════════════════════════════════════════════════════════════════════
+  if (any(branch_options, text_options, na.rm = TRUE)) {
+    if (!viz_params$metadata_kingdom_column %in% colnames(tree_data)) {
+      messages <- c(messages,
+        paste0("❌ ERROR: Column '", viz_params$metadata_kingdom_column, 
+               "' does not exist in metadata"))
+      valid <- FALSE
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # VALIDATION 4: Check Early column exists if Early visualization is activated
+  # ═══════════════════════════════════════════════════════════════════════
+  if (viz_params$early_point_shape || viz_params$early_point_fill_color) {
+    if (!viz_params$metadata_early_column %in% colnames(tree_data)) {
+      messages <- c(messages,
+        paste0("❌ ERROR: Column '", viz_params$metadata_early_column,
+               "' does not exist in metadata"))
+      valid <- FALSE
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # VALIDATION 5: Check strip columns exist if strips are enabled
+  # ═══════════════════════════════════════════════════════════════════════
+  if (viz_params$show_strip_considered) {
+    if (!viz_params$strip_considered_column %in% colnames(tree_data)) {
+      messages <- c(messages,
+        paste0("❌ ERROR: Column '", viz_params$strip_considered_column,
+               "' does not exist in metadata"))
+      valid <- FALSE
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # VALIDATION 6: Check Early column has reasonable number of values
+  # ═══════════════════════════════════════════════════════════════════════
+  if (viz_params$metadata_early_column %in% colnames(tree_data)) {
+    early_values <- unique(tree_data[[viz_params$metadata_early_column]])
+    early_values <- early_values[!is.na(early_values)]
+    if (length(early_values) > 4) {
+      warnings <- c(warnings,
+        paste0("⚠️ WARNING: Column '", viz_params$metadata_early_column,
+               "' has ", length(early_values), " unique values."))
+      warnings <- c(warnings,
+        "   Point shapes work best with 3 categories (e.g., Yes/No/Not applicable)")
+    }
+  }
+  
+  return(list(
+    valid = valid,
+    messages = messages,
+    warnings = warnings
+  ))
+}
+
+#############################################
+### FUNCTION: Print validation report
+#############################################
+# Displays validation results in a formatted, user-friendly manner
+# 
+# Parameters:
+#   validation_result - list from validate_metadata_config()
+# 
+# Returns:
+#   NULL (invisible)
+# 
+# Side effects:
+#   Prints formatted report to console with:
+#     - Critical errors (prevent execution)
+#     - Warnings (non-critical but worth reviewing)
+#     - Final validation status
+
+print_validation_report <- function(validation_result) {
+  cat("\n╔════════════════════════════════════════════╗\n")
+  cat("║   METADATA CONFIGURATION VALIDATION REPORT ║\n")
+  cat("╚════════════════════════════════════════════╝\n\n")
+  
+  # Show errors if any
+  if (length(validation_result$messages) > 0) {
+    cat("🚨 CRITICAL ERRORS:\n")
+    for (msg in validation_result$messages) {
+      cat(msg, "\n")
+    }
+    cat("\n")
+  }
+  
+  # Show warnings if any
+  if (length(validation_result$warnings) > 0) {
+    cat("⚠️  WARNINGS:\n")
+    for (warn in validation_result$warnings) {
+      cat(warn, "\n")
+    }
+    cat("\n")
+  }
+  
+  # Final result
+  if (validation_result$valid) {
+    if (length(validation_result$warnings) == 0) {
+      cat("✅ VALIDATION SUCCESSFUL: No errors or warnings\n")
+    } else {
+      cat("✅ VALIDATION SUCCESSFUL: No critical errors (warnings present)\n")
+    }
+  } else {
+    cat("❌ VALIDATION FAILED: Fix critical errors before continuing\n")
+  }
+  cat("\n")
+}
+
+#############################################
+### FUNCTION: Assign Kingdoms to internal nodes
+#############################################
+# Propagates Kingdom values from tips to internal nodes based on monophyly
+# 
+# This function is essential for kingdom_background_clade visualization option.
+# It determines which internal nodes should be colored based on whether
+# all their descendants belong to the same Kingdom.
+# 
+# Algorithm:
+#   - Uses post-order traversal (process children before parents)
+#   - If ALL descendants have same Kingdom → assign that Kingdom
+#   - If descendants have mixed Kingdoms → assign "Mixed" (no coloring)
+# 
+# Parameters:
+#   tree        - phylo object from ape::read.tree()
+#   kingdom_map - named vector mapping tip labels to Kingdom values
+#                 Names: tip labels, Values: Kingdom names
+# 
+# Returns:
+#   data.frame with columns:
+#     - node: node number (1:n_tips are tips, rest are internal nodes)
+#     - Kingdom: assigned Kingdom value
+# 
+# Example:
+#   tree <- read.tree("gene.nwk")
+#   kingdom_map <- setNames(metadata$Kingdom, metadata$Organism_clean)
+#   node_kingdoms <- assign_internal_node_kingdoms(tree, kingdom_map)
+
+assign_internal_node_kingdoms <- function(tree, kingdom_map) {
+
+  cat("\n🔄 Analyzing internal nodes for Kingdom assignment...\n")
+  
+  # Calculate total number of nodes
+  n_tips <- length(tree$tip.label)
+  n_nodes <- tree$Nnode
+  n_total <- n_tips + n_nodes
+  
+  # Initialize Kingdom vector for ALL nodes
+  # Indices 1:n_tips are tips (already have Kingdom from metadata)
+  # Indices (n_tips+1):n_total are internal nodes (to be calculated)
+  node_kingdoms <- character(n_total)
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 1: Assign Kingdoms to tips (nodes 1:n_tips)
+  # ═══════════════════════════════════════════════════════════════════════
+  for (i in 1:n_tips) {
+    tip_label <- tree$tip.label[i]
+    node_kingdoms[i] <- kingdom_map[tip_label]
+    if (is.na(node_kingdoms[i])) {
+      node_kingdoms[i] <- "Unknown"
+    }
+  }
+  
+  cat("  ✓ Tips assigned:", n_tips, "\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 2: Process internal nodes from leaves to root (post-order)
+  # ═══════════════════════════════════════════════════════════════════════
+  # This ensures we process children before parents
+  
+  internal_nodes <- (n_tips + 1):n_total
+  nodes_assigned <- 0
+  nodes_mixed <- 0
+  
+  for (node in internal_nodes) {
+    # Get ALL descendants (tips) of this node
+    descendants <- phangorn::Descendants(tree, node, type = "tips")[[1]]
+    
+    if (length(descendants) == 0) {
+      # Node without descendants (shouldn't happen in valid tree)
+      node_kingdoms[node] <- "Unknown"
+      next
+    }
+    
+    # Get Kingdoms of all descendants
+    descendant_kingdoms <- node_kingdoms[descendants]
+    descendant_kingdoms <- descendant_kingdoms[!is.na(descendant_kingdoms)]
+    
+    # Check if ALL descendants have the same Kingdom (monophyletic)
+    unique_kingdoms <- unique(descendant_kingdoms)
+    
+    if (length(unique_kingdoms) == 1) {
+      # ALL descendants have the same Kingdom → monophyletic clade
+      node_kingdoms[node] <- unique_kingdoms[1]
+      nodes_assigned <- nodes_assigned + 1
+    } else {
+      # MIXED - descendants have different Kingdoms → paraphyletic
+      node_kingdoms[node] <- "Mixed"
+      nodes_mixed <- nodes_mixed + 1
+    }
+  }
+  
+  cat("  ✓ Internal nodes processed:", n_nodes, "\n")
+  cat("    • Pure nodes (monophyletic):", nodes_assigned, "\n")
+  cat("    • Mixed nodes (paraphyletic):", nodes_mixed, "\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Create data.frame with results
+  # ═══════════════════════════════════════════════════════════════════════
+  result <- data.frame(
+    node = 1:n_total,
+    Kingdom = node_kingdoms,
+    stringsAsFactors = FALSE
+  )
+  
+  return(result)
+}
+
+#############################################
+### FUNCTION: Generate intelligent Phylum abbreviations
+#############################################
+# Creates 3-4 letter abbreviations for Phylum names with collision detection
+# 
+# Abbreviation strategy:
+#   - Default: First 3 letters (capitalized first, lowercase rest)
+#   - Collisions: Use hardcoded 4-letter abbreviations from lookup table
+#   - Format: "Abb" (e.g., "Asco" for Ascomycota)
+# 
+# Known collisions (hardcoded resolution):
+#   - Thermoproteota / Thermotogota → "Thpr" / "Thto"
+#   - Chlorophyta / Chloroflexota → "Chlo" / "Chlf"
+# 
+# Parameters:
+#   phyla - character vector of Phylum names
+# 
+# Returns:
+#   list with two elements:
+#     - abbreviations: named vector (Names: Phylum, Values: Abbreviation)
+#     - legend_table: data.frame with Abbreviation and Phylum columns
+#                     Sorted alphabetically by abbreviation
+# 
+# Example:
+#   phyla <- c("Ascomycota", "Basidiomycota", "Chlorophyta")
+#   result <- generate_phylum_abbreviations(phyla)
+#   # result$abbreviations: c("Ascomycota" = "Asco", "Basidiomycota" = "Bas", ...)
+
+generate_phylum_abbreviations <- function(phyla) {
+  
+  cat("\n🔤 Generating Phylum abbreviations...\n")
+  
+  # Remove NAs and empty values
+  phyla <- phyla[!is.na(phyla) & phyla != ""]
+  phyla_unique <- unique(phyla)
+  
+  if (length(phyla_unique) == 0) {
+    cat("  ⚠️  No Phyla found in data\n")
+    return(list(abbreviations = character(0), legend_table = data.frame()))
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # COLLISION RESOLUTION TABLE (hardcoded based on empirical analysis)
+  # ═══════════════════════════════════════════════════════════════════════
+  # Only the 4 Phyla that collide with 3-letter abbreviations
+  
+  collision_resolution <- c(
+    "Thermoproteota" = "Thpr",
+    "Thermotogota" = "Thto",
+    "Chlorophyta" = "Chlo",
+    "Chloroflexota" = "Chlf"
+  )
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # GENERATE ABBREVIATIONS
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  abbreviations <- character(length(phyla_unique))
+  names(abbreviations) <- phyla_unique
+  
+  for (phylum in phyla_unique) {
+    
+    # Check if it's in the collision resolution table
+    if (phylum %in% names(collision_resolution)) {
+      # Use predefined 4-letter abbreviation
+      abbreviations[phylum] <- collision_resolution[phylum]
+      
+    } else {
+      # Use first 3 letters (capitalize first, lowercase rest)
+      abb <- substr(phylum, 1, 3)
+      # Format: First letter uppercase, rest lowercase
+      abbreviations[phylum] <- paste0(
+        toupper(substr(abb, 1, 1)),
+        tolower(substr(abb, 2, 3))
+      )
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # COLLISION VERIFICATION (additional safety check)
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  abb_counts <- table(abbreviations)
+  collisions <- names(abb_counts[abb_counts > 1])
+  
+  if (length(collisions) > 0) {
+    cat("  ⚠️  WARNING: Unexpected collisions detected:\n")
+    for (coll in collisions) {
+      affected <- names(abbreviations[abbreviations == coll])
+      cat("    •", coll, "→", paste(affected, collapse = ", "), "\n")
+    }
+    cat("  💡 Please report this to update collision_resolution table\n")
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # CREATE LEGEND TABLE for figure captions
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  legend_table <- data.frame(
+    Abbreviation = abbreviations,
+    Phylum = names(abbreviations),
+    stringsAsFactors = FALSE
+  )
+  
+  # Sort alphabetically by abbreviation for easy lookup
+  legend_table <- legend_table[order(legend_table$Abbreviation), ]
+  rownames(legend_table) <- NULL
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STATISTICS REPORT
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  n_3letter <- sum(nchar(abbreviations) == 3)
+  n_4letter <- sum(nchar(abbreviations) == 4)
+  
+  cat("  ✓ Abbreviations generated:", length(abbreviations), "Phyla\n")
+  cat("    • 3-letter abbreviations:", n_3letter, "\n")
+  cat("    • 4-letter abbreviations:", n_4letter, "\n")
+  
+  # Show 4-letter cases if they exist (collision resolutions)
+  if (n_4letter > 0) {
+    four_letter <- legend_table[nchar(legend_table$Abbreviation) == 4, ]
+    cat("    • 4-letter cases (collision resolution):\n")
+    for (i in seq_len(nrow(four_letter))) {
+      cat("      -", four_letter$Abbreviation[i], "=", 
+          four_letter$Phylum[i], "\n")
+    }
+  }
+  
+  return(list(
+    abbreviations = abbreviations,
+    legend_table = legend_table
+  ))
+}
+
+#############################################
+### FUNCTION: Add Phylum abbreviations to tip labels
+#############################################
+# Modifies tree tip labels to include [Abb] Phylum annotations
+# 
+# Label format transformation:
+#   Before: "Aspergillus niger"
+#   After:  "Aspergillus niger [Asco]"
+# 
+# This function:
+#   1. Generates abbreviations using generate_phylum_abbreviations()
+#   2. Creates mapping from tip labels to Phylum
+#   3. Appends [Abb] to each tip label
+#   4. Stores legend as tree attribute for later export
+# 
+# Parameters:
+#   tree               - phylo object from ape
+#   tree_with_metadata - data.frame with metadata and clean_label_final column
+#   phylum_column      - name of Phylum column (default "Phylum")
+# 
+# Returns:
+#   phylo object with modified tip.label
+#   Attribute added: attr(tree, "phylum_legend") - legend table
+# 
+# Side effects:
+#   - Modifies tree$tip.label in place
+#   - Prints progress and statistics
+# 
+# Example:
+#   tree <- read.tree("gene.nwk")
+#   tree_with_metadata$clean_label_final <- tree$tip.label
+#   tree <- add_phylum_to_labels(tree, tree_with_metadata, "Phylum")
+
+add_phylum_to_labels <- function(tree, tree_with_metadata, 
+                                  phylum_column = "Phylum") {
+  
+  cat("\n🏷️  Adding Phylum abbreviations to tip labels...\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Verify that Phylum column exists
+  # ═══════════════════════════════════════════════════════════════════════
+  if (!phylum_column %in% colnames(tree_with_metadata)) {
+    cat("  ⚠️  Column", phylum_column, "not found in metadata\n")
+    cat("  Skipping Phylum annotation\n")
+    return(tree)
+  }
+  
+  # Get Phyla present in the tree
+  phyla_in_tree <- tree_with_metadata[[phylum_column]]
+  
+  # Generate abbreviation system
+  abb_system <- generate_phylum_abbreviations(phyla_in_tree)
+  
+  if (length(abb_system$abbreviations) == 0) {
+    cat("  ⚠️  No Phyla to abbreviate\n")
+    return(tree)
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Create mapping: clean_label_final → Phylum abbreviation
+  # ═══════════════════════════════════════════════════════════════════════
+  phylum_map <- setNames(
+    tree_with_metadata[[phylum_column]],
+    tree_with_metadata$clean_label_final
+  )
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Modify tip labels by appending [Abb]
+  # ═══════════════════════════════════════════════════════════════════════
+  new_labels <- tree$tip.label
+  tips_annotated <- 0
+  tips_no_phylum <- 0
+  
+  for (i in seq_along(new_labels)) {
+    tip_label <- new_labels[i]
+    
+    # Get Phylum for this tip
+    phylum <- phylum_map[tip_label]
+    
+    if (!is.na(phylum) && phylum != "") {
+      # Get abbreviation for this Phylum
+      abb <- abb_system$abbreviations[phylum]
+      
+      if (!is.na(abb)) {
+        # Add [Abb] at the end
+        new_labels[i] <- paste0(tip_label, " [", abb, "]")
+        tips_annotated <- tips_annotated + 1
+      }
+    } else {
+      # No Phylum information available - add empty brackets
+      new_labels[i] <- paste0(tip_label, " []")
+      tips_no_phylum <- tips_no_phylum + 1
+    }
+  }
+  
+  # Update tree with modified labels
+  tree$tip.label <- new_labels
+  
+  cat("  ✓ Labels updated successfully\n")
+  cat("    • Tips annotated:", tips_annotated, "\n")
+  
+  if (tips_no_phylum > 0) {
+    cat("    • Tips without Phylum:", tips_no_phylum, "\n")
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Save legend as tree attribute for later export
+  # ═══════════════════════════════════════════════════════════════════════
+  attr(tree, "phylum_legend") <- abb_system$legend_table
+  
+  cat("\n")
+  
+  return(tree)
+}
+
+#############################################
+### FUNCTION: Generate Phylum legend text for figure caption
+#############################################
+# Creates formatted legend text suitable for scientific publication captions
+# 
+# Output format:
+#   "Phylum abbreviations: Asco = Ascomycota, Bas = Basidiomycota, ..."
+# 
+# Parameters:
+#   tree - phylo object with phylum_legend attribute
+#          (created by add_phylum_to_labels)
+# 
+# Returns:
+#   character string with formatted legend text
+# 
+# Example:
+#   tree <- add_phylum_to_labels(tree, metadata)
+#   legend_text <- generate_phylum_legend_text(tree)
+#   # Use in figure caption or manuscript
+
+generate_phylum_legend_text <- function(tree) {
+  
+  legend_table <- attr(tree, "phylum_legend")
+  
+  if (is.null(legend_table) || nrow(legend_table) == 0) {
+    return("No Phylum abbreviations used.")
+  }
+  
+  # Format each entry as "Abb = Phylum"
+  legend_entries <- paste0(
+    legend_table$Abbreviation, 
+    " = ", 
+    legend_table$Phylum
+  )
+  
+  # Join all entries with commas
+  legend_text <- paste(legend_entries, collapse = ", ")
+  
+  # Add prefix for complete caption text
+  full_legend <- paste0(
+    "Phylum abbreviations: ",
+    legend_text,
+    "."
+  )
+  
+  return(full_legend)
+}
+
+#############################################
+### FUNCTION: Print Phylum legend table to console
+#############################################
+# Displays formatted legend table for reference and manuscript preparation
+# 
+# Parameters:
+#   tree - phylo object with phylum_legend attribute
+# 
+# Returns:
+#   legend_table (invisible) for programmatic access
+# 
+# Side effects:
+#   - Prints formatted table to console
+#   - Shows caption-ready text
+
+print_phylum_legend <- function(tree) {
+  
+  legend_table <- attr(tree, "phylum_legend")
+  
+  if (is.null(legend_table) || nrow(legend_table) == 0) {
+    cat("No Phylum legend available.\n")
+    return(invisible(NULL))
+  }
+  
+  cat("\n╔═══════════════════════════════════════════════════════════╗\n")
+  cat("║              PHYLUM ABBREVIATIONS LEGEND                  ║\n")
+  cat("╚═══════════════════════════════════════════════════════════╝\n\n")
+  
+  cat("📋 Copy this text to your figure caption:\n")
+  cat("───────────────────────────────────────────────────────────\n")
+  cat(generate_phylum_legend_text(tree), "\n")
+  cat("───────────────────────────────────────────────────────────\n\n")
+  
+  cat("📊 Full table (", nrow(legend_table), " Phyla):\n\n", sep = "")
+  print(legend_table, row.names = FALSE)
+  
+  cat("\n")
+  
+  return(invisible(legend_table))
+}
+
+#############################################
+### FUNCTION: Export Phylum legend to file
+#############################################
+# Exports Phylum legend in three formats for different use cases
+# 
+# Generated files:
+#   1. TSV format - for import in Excel/R/Python
+#   2. TXT format - formatted text for copying to manuscript
+#   3. PDF format - visual table for presentations
+# 
+# Parameters:
+#   tree       - phylo object with phylum_legend attribute
+#   output_dir - directory path for saving legend files
+#   gene_name  - gene identifier for filename prefix
+# 
+# Returns:
+#   list with paths to generated files:
+#     - tsv: path to TSV file
+#     - txt: path to TXT file
+#     - pdf: path to PDF file
+# 
+# Side effects:
+#   - Creates 3 files in output_dir
+#   - Prints confirmation messages
+# 
+# Example:
+#   paths <- export_phylum_legend_to_file(tree, "output/figures/LOG", "LOG")
+#   # Creates: LOG_phylum_legend.tsv, .txt, .pdf
+
+export_phylum_legend_to_file <- function(tree, output_dir, gene_name) {
+  
+  # Verify that legend exists
+  legend_table <- attr(tree, "phylum_legend")
+  
+  if (is.null(legend_table) || nrow(legend_table) == 0) {
+    cat("⚠️  No Phylum legend to export\n")
+    return(NULL)
+  }
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # OPTION 1: TSV File (for import in Excel/R)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  legend_file_tsv <- file.path(output_dir, paste0(gene_name, "_phylum_legend.tsv"))
+  
+  write.table(
+    legend_table,
+    file = legend_file_tsv,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE
+  )
+  
+  cat("✅ Phylum legend (TSV) exported to:", legend_file_tsv, "\n")
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # OPTION 2: Formatted text file (for copying to paper)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  legend_file_txt <- file.path(output_dir, paste0(gene_name, "_phylum_legend.txt"))
+  
+  # Generate formatted text
+  legend_text <- generate_phylum_legend_text(tree)
+  
+  # Write to file
+  writeLines(
+    c(
+      "═════════════════════════════════════════════════════",
+      "PHYLUM ABBREVIATIONS LEGEND",
+      "═════════════════════════════════════════════════════",
+      "",
+      "For figure caption:",
+      "─────────────────────────────────────────────────────",
+      legend_text,
+      "─────────────────────────────────────────────────────",
+      "",
+      paste("Full table (", nrow(legend_table), " Phyla):", sep = ""),
+      "",
+      paste(
+        sprintf("%-6s = %s", legend_table$Abbreviation, legend_table$Phylum),
+        collapse = "\n"
+      ),
+      "",
+      "═════════════════════════════════════════════════════"
+    ),
+    legend_file_txt
+  )
+  
+  cat("✅ Phylum legend (TXT) exported to:", legend_file_txt, "\n")
+  
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # OPTION 3: Create visual graphic of the legend
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  legend_file_pdf <- file.path(output_dir, paste0(gene_name, "_phylum_legend.pdf"))
+  
+  # Create visual table with ggplot2
+  library(ggplot2)
+  library(gridExtra)
+  
+  # Prepare data for visual table
+  legend_table$Index <- seq_len(nrow(legend_table))
+  
+  # Create plot with table
+  p_legend <- ggplot() + 
+    theme_void() +
+    annotation_custom(
+      tableGrob(
+        legend_table[, c("Abbreviation", "Phylum")],
+        rows = NULL,
+        theme = ttheme_default(
+          base_size = 10,
+          padding = unit(c(4, 4), "mm"),
+          core = list(
+            fg_params = list(hjust = 0, x = 0.1)
+          ),
+          colhead = list(
+            fg_params = list(fontface = "bold")
+          )
+        )
+      )
+    )
+  
+  # Export PDF
+  ggsave(
+    filename = legend_file_pdf,
+    plot = p_legend,
+    width = 6,
+    height = max(4, nrow(legend_table) * 0.3),
+    units = "in"
+  )
+  
+  cat("✅ Phylum legend (PDF) exported to:", legend_file_pdf, "\n\n")
+  
+  # Return paths of generated files
+  return(list(
+    tsv = legend_file_tsv,
+    txt = legend_file_txt,
+    pdf = legend_file_pdf
+  ))
+}
+
+cat("✓ All auxiliary functions loaded\n")
+```
+
+# 5. Read and Validate Tree
+
+```{r read_tree}
+#############################################
+### TREE FILE VALIDATION AND READING
+#############################################
+# This section performs initial tree file processing:
+#   1. Validates file existence and Newick format
+#   2. Reads phylogenetic tree structure
+#   3. Calculates basic tree statistics
+#   4. Previews tip labels for quality control
+
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 1: Validate file existence and format
+# ═══════════════════════════════════════════════════════════════════════
+validate_file(input_file)
+
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 2: Read Newick formatted tree
+# ═══════════════════════════════════════════════════════════════════════
+# The ape::read.tree() function handles standard Newick format from:
+#   - Phylogenetic inference software: IQ-TREE, RAxML, PhyML, FastTree
+#   - Analysis software: MEGA, PAUP, FigTree
+#   - Online repositories: TreeBASE, NCBI Taxonomy
+#
+# Newick format specifications:
+#   - Branch lengths: numbers after colon (e.g., :0.123)
+#   - Bootstrap values: numbers at internal nodes
+#   - Tip labels: organism/sequence identifiers
+#   - Tree structure: nested parentheses for hierarchical relationships
+
+tree <- tryCatch({
+  read.tree(input_file)
+}, error = function(e) {
+  stop(paste("ERROR reading tree file:", e$message,
+             "\n  Check that file is valid Newick format"))
+})
+
+cat("✓ Tree file successfully read\n")
+
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 3: Calculate and display tree statistics
+# ═══════════════════════════════════════════════════════════════════════
+# These statistics help assess tree quality and guide visualization choices
+tree_stats <- get_tree_stats(tree)
+print_tree_stats(tree_stats)
+
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 4: Preview tip labels for quality control
+# ═══════════════════════════════════════════════════════════════════════
+# This helps verify label format before parsing
+cat("\n📋 Preview of tip labels (first 5):\n")
+print(head(tree$tip.label, 5))
+cat("\n")
+```
+
+# 6. Metadata Processing and Matching
+
+```{r metadata_processing}
+#############################################
+### METADATA INTEGRATION WORKFLOW
+#############################################
+# This section integrates metadata with phylogenetic tree data:
+#   1. Extracts taxonomic information from tree labels
+#   2. Loads metadata from external file
+#   3. Matches tree tips with metadata using multiple strategies
+#   4. Generates templates for missing organisms
+#   5. Creates unified dataset for visualization
+
+#############################################
+### STEP 1: Extract Information from Tree Labels
+#############################################
+cat("\n📋 Extracting taxonomic information from tree labels...\n")
+
+# Parse tip labels to extract structured components:
+#   - Genus and species (binomial nomenclature)
+#   - TaxID (NCBI Taxonomy ID)
+#   - UniProt ID (protein database accession)
+#   - Protein/gene name
+tree_taxid_data <- extract_taxid_from_labels(tree$tip.label)
+
+cat("\n📊 Sample of extracted data:\n")
+print(head(tree_taxid_data[, c("original_label", "genus_species_only", "taxid")], 3))
+
+#############################################
+### STEP 2: Load and Match Metadata
+#############################################
+# Metadata provides additional biological context:
+#   - Taxonomic classification (Kingdom, Phylum)
+#   - Evolutionary status (Early diverging organisms)
+#   - Ecological categories (Habitat, lifestyle)
+
+if (viz_params$use_metadata && file.exists(metadata_file)) {
+  cat("\n📂 Loading metadata file...\n")
+  metadata <- load_metadata(metadata_file)
+  
+  cat("\n🔍 Matching tree tips with metadata...\n")
+  cat("   Using hierarchical matching strategy:\n")
+  cat("   1. TaxID match (most reliable)\n")
+  cat("   2. Organism name match (good reliability)\n")
+  cat("   3. Partial TaxID match (fallback)\n\n")
+  
+  match_result <- match_tree_metadata(tree_taxid_data, metadata)
+  
+  # Display comprehensive matching report
+  print_matching_report(match_result)
+  
+  # ─────────────────────────────────────────────────────────────────────
+  # Generate template for organisms not found in metadata
+  # ─────────────────────────────────────────────────────────────────────
+  missing_template <- generate_missing_metadata(match_result)
+  
+  # Optional: Automatically save missing metadata template
+  # Uncomment these lines to enable automatic template generation:
+  # if (!is.null(missing_template)) {
+  #   write.table(missing_template, 
+  #               file = file.path(presence_absence_dir, 
+  #                               paste0(file, "_missing_Metadata.tsv")),
+  #               sep = "\t", row.names = FALSE, quote = FALSE)
+  #   cat("📝 Missing organisms template saved\n")
+  #   cat("   Fill in the information and add to your metadata file.\n")
+  # }
+  
+  # Store matched data for downstream visualization
+  tree_with_metadata <- match_result$data
+  
+} else {
+  # ═══════════════════════════════════════════════════════════════════
+  # Handle cases where metadata is unavailable or disabled
+  # ═══════════════════════════════════════════════════════════════════
+  if (viz_params$use_metadata && !file.exists(metadata_file)) {
+    cat("\n⚠️  Warning: Metadata file not found:", metadata_file, "\n")
+    cat("   Proceeding without metadata visualization.\n")
+    cat("   Tree will be created with basic styling only.\n\n")
+  } else {
+    cat("\nℹ️  Metadata visualization disabled in parameters.\n")
+    cat("   To enable: Set use_metadata = TRUE in viz_params\n\n")
+  }
+  
+  # Disable metadata features and use basic tree data
+  viz_params$use_metadata <- FALSE
+  tree_with_metadata <- tree_taxid_data
+}
+```
+
+# 7. Name Cleaning with Mapping
+
+```{r clean_names}
+#############################################
+### TIP LABEL CLEANING AND MAPPING
+#############################################
+# This section prepares tip labels for visualization while maintaining
+# traceability to original identifiers. This is critical for:
+#   - Metadata matching (links cleaned names to database records)
+#   - Duplicate handling (ensures unique labels)
+#   - Visual clarity (removes technical artifacts)
+
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 1: Store original labels for reference
+# ═══════════════════════════════════════════════════════════════════════
+original_labels <- tree$tip.label
+
+# ═══════════════════════════════════════════════════════════════════════
+# STEP 2: Clean names AND create bidirectional mapping
+# ═══════════════════════════════════════════════════════════════════════
+# CRITICAL: The mapping preserves connections between:
+#   - Original labels (for file tracking)
+#   - Base cleaned labels (for metadata matching)
+#   - Final cleaned labels (for visualization)
+
+clean_result <- clean_tip_labels_with_mapping(tree$tip.label, clean_params)
+tree$tip.label <- clean_result$cleaned
+name_mapping <- clean_result$mapping
+
+# Display cleaning results for quality control
+cat("\n╔═══════════════════════════════════════════════════════════╗\n")
+cat("║           NAME CLEANING COMPARISON                        ║\n")
+cat("╚═══════════════════════════════════════════════════════════╝\n\n")
+
+comparison <- data.frame(
+  Original = head(original_labels, 5),
+  Cleaned = head(tree$tip.label, 5)
+)
+print(comparison)
+cat("\n")
+
+#############################################
+### STEP 3: Merge Metadata with Cleaned Names
+#############################################
+# CRITICAL STEP: This links metadata (matched to original names)
+# with cleaned names (used in tree visualization)
+
+if (viz_params$use_metadata && exists("match_result")) {
+  
+  cat("🔗 Linking metadata with cleaned names...\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # CRITICAL FIX: Extract data from match_result correctly
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  # Get the matched metadata (THIS IS THE KEY FIX!)
+  tree_with_metadata_full <- match_result$data  # ✅ NOT match_result itself!
+  
+  cat("✓ Extracted metadata from match_result$data\n")
+  cat("   Columns:", paste(colnames(tree_with_metadata_full), collapse=", "), "\n\n")
+  
+  # Verify Kingdom exists
+  if (!"Kingdom" %in% colnames(tree_with_metadata_full)) {
+    stop("❌ CRITICAL ERROR: Kingdom column missing from match_result$data!\n",
+         "   Check your match_metadata_to_tree function.\n")
+  }
+  
+  cat("✓ Kingdom column confirmed present\n")
+  cat("   Sample Kingdoms:", paste(head(tree_with_metadata_full$Kingdom, 5), collapse=", "), "\n\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Merge with name_mapping to add clean_label_final
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  metadata_with_clean_names <- merge(
+    tree_with_metadata_full,  # Has: original_label, Kingdom, Phylum, Early, etc.
+    name_mapping,              # Has: original_label, clean_label_final
+    by = "original_label",
+    all.x = TRUE
+  )
+  
+  cat("✓ Metadata successfully merged with cleaned names\n")
+  cat("\n📊 Verificando columnas después del merge:\n")
+  cat("   Columnas:", paste(colnames(metadata_with_clean_names), collapse=", "), "\n\n")
+  
+  # Verify critical columns exist
+  required_cols <- c("clean_label_final", "Kingdom", "Phylum", "Early")
+  missing_cols <- setdiff(required_cols, colnames(metadata_with_clean_names))
+  
+  if (length(missing_cols) > 0) {
+    stop("❌ CRITICAL ERROR: Missing columns after merge: ", 
+         paste(missing_cols, collapse=", "), "\n",
+         "   Check the merge operation.\n")
+  }
+  
+  cat("✓ All required columns present\n")
+  cat("\n📊 Sample of final integrated data:\n")
+  sample_data <- head(metadata_with_clean_names[, c("original_label", "clean_label_final", "Kingdom", "Phylum", "Early")], 5)
+  print(sample_data)
+  cat("\n")
+  
+  # Update tree_with_metadata with merged data
+  tree_with_metadata <- metadata_with_clean_names
+  
+  cat("✓ tree_with_metadata updated successfully\n")
+  cat("   Total rows:", nrow(tree_with_metadata), "\n")
+  cat("   Has Kingdom:", "Kingdom" %in% colnames(tree_with_metadata), "\n\n")
+  
+} else {
+  if (!exists("match_result")) {
+    stop("❌ CRITICAL ERROR: match_result does not exist!\n",
+         "   Make sure match_metadata_to_tree() was called successfully.\n")
+  }
+}
+
+#############################################
+### STEP 4: Add Phylum Annotations to Tip Labels (Optional)
+#############################################
+if (viz_params$show_phylum_labels && 
+    viz_params$use_metadata && 
+    exists("tree_with_metadata")) {
+  
+  cat("\n🧬 Adding Phylum annotations to tip labels...\n")
+  
+  # IMPORTANT: This modifies tree$tip.label
+  tree <- add_phylum_to_labels(
+    tree = tree,
+    tree_with_metadata = tree_with_metadata,
+    phylum_column = viz_params$metadata_phylum_column
+  )
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # CRITICAL FIX: Update clean_label_final to match new tip labels
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  # Create mapping from old clean_label_final to new tip labels
+  old_labels <- tree_with_metadata$clean_label_final
+  
+  # The new labels are in the same order as tree$tip.label
+  # We need to map based on the ORIGINAL matching
+  for (i in 1:nrow(tree_with_metadata)) {
+    orig_label <- tree_with_metadata$original_label[i]
+    
+    # Find position in name_mapping
+    map_idx <- which(name_mapping$original_label == orig_label)
+    
+    if (length(map_idx) > 0) {
+      # Get the position in tree
+      tree_idx <- which(original_labels == orig_label)
+      
+      if (length(tree_idx) > 0) {
+        # Update with the NEW label (with Phylum suffix)
+        tree_with_metadata$clean_label_final[i] <- tree$tip.label[tree_idx[1]]
+      }
+    }
+  }
+  
+  cat("✓ Phylum annotations successfully added to tree\n")
+  cat("✓ clean_label_final updated to match new labels\n\n")
+  
+  # Verify synchronization
+  cat("📊 Verificando sincronización:\n")
+  cat("   Primeros 5 tree$tip.label:\n")
+  print(head(tree$tip.label, 5))
+  cat("\n   Primeros 5 tree_with_metadata$clean_label_final:\n")
+  print(head(tree_with_metadata$clean_label_final, 5))
+  cat("\n")
+  
+  # Print legend for reference
+  print_phylum_legend(tree)
+  
+} else {
+  # No Phylum labels - just copy the clean labels
+  if (viz_params$use_metadata && exists("tree_with_metadata")) {
+    cat("\n📋 No Phylum labels requested\n")
+    cat("   Ensuring clean_label_final matches tree$tip.label...\n")
+    
+    # Update clean_label_final to match current tree labels
+    for (i in 1:nrow(tree_with_metadata)) {
+      orig_label <- tree_with_metadata$original_label[i]
+      tree_idx <- which(original_labels == orig_label)
+      
+      if (length(tree_idx) > 0) {
+        tree_with_metadata$clean_label_final[i] <- tree$tip.label[tree_idx[1]]
+      }
+    }
+    
+    cat("✓ Synchronization complete\n\n")
+  }
+}
+
+# ═════════════════════════════════════════════════════════════════════════
+# CONFIGURATION VALIDATION
+# ═════════════════════════════════════════════════════════════════════════
+# Validate metadata configuration before proceeding to visualization
+# This prevents common errors and provides actionable feedback
+
+if (viz_params$use_metadata && exists("tree_with_metadata")) {
+  cat("\n🔍 Validating metadata visualization configuration...\n")
+  validation_result <- validate_metadata_config(tree_with_metadata, viz_params)
+  print_validation_report(validation_result)
+  
+  # Stop execution if critical errors are found
+  # This prevents generating incorrect or misleading visualizations
+  if (!validation_result$valid) {
+    stop("❌ Invalid configuration detected. Please review errors above and fix before proceeding.")
+  }
+}
+```
+
+# 8. Phylogenetic Tree Visualization
+
+```{r create_tree, fig.width=14, fig.height=14}
+#############################################
+### PHYLOGENETIC TREE VISUALIZATION
+#############################################
+# This chunk creates publication-quality phylogenetic trees with:
+#   - Multiple layout options (circular, rectangular, fan, radial)
+#   - Metadata integration (Kingdom, Phylum, Early diverging)
+#   - Visual enhancements (bootstrap, branch lengths, lateral strips)
+#   - Customizable styling (colors, fonts, sizes)
+#
+# Total visualization layers: 12 STEPS
+# Expected output: High-resolution tree figure ready for publication
+
+#############################################
+### STEP 1: Initialize Base Tree Structure
+#############################################
+# Creates the foundational ggtree object that will be enhanced in subsequent steps
+#
+# This step establishes:
+#   - Tree topology (from phylo object)
+#   - Layout type (circular, rectangular, fan, radial)
+#   - Branch length display mode (cladogram vs phylogram)
+#   - Initial branch styling (color, thickness)
+#   - Plot theme and margins
+#   - Legend configuration
+
+# ═══════════════════════════════════════════════════════════════════════
+# Create base ggtree object with conditional branch coloring
+# ═══════════════════════════════════════════════════════════════════════
+
+if (viz_params$use_metadata && viz_params$kingdom_color_branch) {
+  # Metadata mode: Branch colors will be applied by Kingdom in STEP 2
+  # Don't specify color parameter here
+  p <- ggtree(
+    tree, 
+    layout = viz_params$layout,               # circular, rectangular, fan, radial
+    branch.length = viz_params$branch_length_mode,  # "none" or "branch.length"
+    size = viz_params$branch_size             # branch thickness
+  )
+  cat("✓ Base tree created (branches will be colored by Kingdom)\n")
+} else {
+  # Simple mode: Fixed branch color throughout tree
+  p <- ggtree(
+    tree, 
+    layout = viz_params$layout,
+    branch.length = viz_params$branch_length_mode,
+    size = viz_params$branch_size,
+    color = viz_params$branch_color           # fixed color for all branches
+  )
+  cat("✓ Base tree created (branches with fixed color)\n")
+}
+
+# ═══════════════════════════════════════════════════════════════════════
+# Add tree geometry and apply base theme
+# ═══════════════════════════════════════════════════════════════════════
+p <- p + geom_tree() + theme_tree2()
+
+# ═══════════════════════════════════════════════════════════════════════
+# Configure hollow center for circular/radial layouts (donut effect)
+# ═══════════════════════════════════════════════════════════════════════
+if (viz_params$add_center_circle && viz_params$layout == "circular") {
+  # xlim(center_size, NA) creates empty space in the center
+  # This creates the characteristic "donut" appearance
+  p <- p + xlim(viz_params$center_circle_size, NA)
+  cat("✓ Center circle added (donut effect)\n")
+}
+
+# ═══════════════════════════════════════════════════════════════════════
+# Configure legend display based on active metadata visualizations
+# ═══════════════════════════════════════════════════════════════════════
+
+# Determine if legend should be shown
+# Legend is needed if any of these metadata visualizations are active:
+#   - Kingdom-colored branches
+#   - Kingdom-colored text
+#   - Early diverging shape markers
+#   - Early diverging color coding
+show_legend <- viz_params$use_metadata && 
+               viz_params$show_metadata_legend && 
+               (viz_params$kingdom_color_branch || 
+                viz_params$kingdom_color_text || 
+                viz_params$early_point_shape || 
+                viz_params$early_point_fill_color)
+
+if (show_legend) {
+  # Legend enabled: Position on right side with professional styling
+  p <- p + theme(
+    plot.margin = margin(10, 10, 10, 10),
+    legend.position = "right",
+    legend.justification = c(0, 0.5),
+    legend.box = "vertical",
+    legend.box.spacing = unit(0.5, "lines"),
+    legend.background = element_rect(fill = "white", color = "gray80", linewidth = 0.5),
+    legend.title = element_text(size = 11, face = "bold"),
+    legend.text = element_text(size = 9),
+    legend.key = element_rect(fill = "white", color = NA),
+    legend.key.size = unit(0.8, "lines"),
+    legend.spacing.y = unit(0.3, "lines"),
+    legend.margin = margin(5, 5, 5, 5)
+  )
+  cat("✓ Legend enabled (metadata visualizations active)\n")
+} else {
+  # Legend disabled: Hide to maximize tree display area
+  p <- p + theme(
+    plot.margin = margin(10, 10, 10, 10),
+    legend.position = "none"
+  )
+  cat("ℹ️  Legend disabled (no metadata visualizations active)\n")
+}
+
+cat("\n✓ Base tree initialized successfully\n")
+cat("  Layout:", viz_params$layout, "\n")
+cat("  Mode:", ifelse(viz_params$branch_length_mode == "none", "cladogram", "phylogram"), "\n")
+cat("  Tips:", length(tree$tip.label), "\n")
+cat("  Nodes:", tree$Nnode, "\n\n")
+
+#############################################
+### STEP 2: Apply Kingdom-based Configuration
+#############################################
+# Integrates taxonomic Kingdom information into the tree visualization
+#
+# This step enables multiple Kingdom-based styling options:
+#   OPTION 1: Recursive branch coloring (colors extend to internal nodes)
+#   OPTION 2: Clade background highlighting (commented out by default)
+#   OPTION 3: Text color by Kingdom
+#   OPTION 4: Text background highlighting by Kingdom
+#
+# All options use the Kingdom column from metadata and respect
+# the color palette defined in viz_params$kingdom_colors
+if (viz_params$use_metadata && 
+    viz_params$metadata_kingdom_column %in% colnames(tree_with_metadata)) {
+  
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CRITICAL: Create Kingdom mapping ONCE at the beginning
+  # ═══════════════════════════════════════════════════════════════════════════
+  kingdom_map <- setNames(
+    tree_with_metadata[[viz_params$metadata_kingdom_column]],
+    tree_with_metadata$clean_label_final
+  )
+  
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STEP 2.1: Preserve original Kingdom mapping in p$data
+  # This MUST be done BEFORE any recursive calculations
+  # ═══════════════════════════════════════════════════════════════════════════
+  if (!"Kingdom" %in% colnames(p$data)) {
+    p$data$Kingdom <- kingdom_map[p$data$label]
+    cat("✓ Original Kingdom mapping added to p$data\n")
+  }
+  
+  # ────────────────────────────────────────────────────────────────────────────
+  # OPTION 1: Branch color by Kingdom (RECURSIVE - extended to internal nodes)
+  # ────────────────────────────────────────────────────────────────────────────
+  if (viz_params$kingdom_color_branch) {
+    
+    cat("\n🎨 Applying RECURSIVE branch coloring by Kingdom...\n")
+    cat("   Branches will be colored until reaching mixed nodes\n\n")
+    
+    # Verify phangorn availability
+    has_phangorn <- requireNamespace("phangorn", quietly = TRUE)
+    
+    if (!has_phangorn) {
+      stop("❌ ERROR: Package 'phangorn' is required for recursive branch coloring.\n",
+           "Install with: install.packages('phangorn')\n",
+           "Then reload the script.")
+    }
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Calculate Kingdoms for internal nodes (ONCE)
+    # ═══════════════════════════════════════════════════════════════════════════
+    node_kingdom_data <- assign_internal_node_kingdoms(tree, kingdom_map)
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # RENAME: Use Kingdom_recursive for branch coloring
+    # This does NOT affect the original Kingdom column used by strips
+    # ═══════════════════════════════════════════════════════════════════════════
+    colnames(node_kingdom_data)[colnames(node_kingdom_data) == "Kingdom"] <- "Kingdom_recursive"
+    
+    # Add recursive Kingdoms to plot data
+    p$data <- dplyr::left_join(
+      p$data,
+      node_kingdom_data,
+      by = "node"
+    )
+    
+    # Apply coloring
+    p <- p + 
+      geom_tree(
+        aes(color = Kingdom_recursive), 
+        size = viz_params$branch_size
+      ) +
+      scale_color_manual(
+        values = c(
+          viz_params$kingdom_colors,
+          "Mixed" = viz_params$branch_color,
+          "Unknown" = "#000000"
+        ),
+        name = "Kingdom",
+        na.value = "black",
+        breaks = names(viz_params$kingdom_colors)
+      )
+    
+    cat("✓ Recursive branch coloring applied\n")
+    cat("  • Branches colored up to first mixed node\n")
+    cat("  • Pure clades fully colored toward center\n\n")
+  }
+  
+  # ──────────────────────────────────────────────────────────────────────────
+  # OPTION 2: Clade background by Kingdom
+  # ──────────────────────────────────────────────────────────────────────────
+  if (viz_params$kingdom_background_clade) {
+    # Note: This function requires kingdoms to be monophyletic
+    # If mixed, it will look chaotic
+
+    # Get ancestral nodes for each Kingdom
+    kingdoms <- unique(kingdom_map)
+    kingdoms <- kingdoms[!is.na(kingdoms)]
+
+    for (k in kingdoms) {
+      # Get tips for this Kingdom
+      tips_kingdom <- names(kingdom_map)[kingdom_map == k & !is.na(kingdom_map)]
+
+      # Find most recent common ancestor (MRCA)
+      if (length(tips_kingdom) > 1) {
+        # Get tip indices in tree
+        tip_indices <- which(tree$tip.label %in% tips_kingdom)
+
+        if (length(tip_indices) > 1) {
+          mrca_node <- getMRCA(tree, tip_indices)
+
+          if (!is.null(mrca_node)) {
+            p <- p +
+              geom_hilight(
+                node = mrca_node,
+                fill = viz_params$kingdom_colors[k],
+                alpha = 0.3,
+                extend = 0.01
+              )
+          }
+        }
+      }
+    }
+    cat("✓ Clade background applied by Kingdom\n")
+    cat("  ⚠️ If kingdoms are mixed, background may appear fragmented\n")
+  }
+  
+  # # ──────────────────────────────────────────────────────────────────────────
+  # # OPTION 2: Clade background by Kingdom (individual tip highlighting)
+  # # ──────────────────────────────────────────────────────────────────────────
+  # if (viz_params$kingdom_background_clade) {
+  #   
+  #   cat("⚠️  Using INDIVIDUAL tip highlighting (not monophyletic clades)\n")
+  #   cat("   This works for paraphyletic/polyphyletic groups\n")
+  #   
+  #   # Get all unique Kingdoms
+  #   kingdoms <- unique(kingdom_map)
+  #   kingdoms <- kingdoms[!is.na(kingdoms)]
+  #   
+  #   # For each Kingdom, highlight ALL its tips individually
+  #   for (k in kingdoms) {
+  #     # Get tips for this Kingdom
+  #     tips_kingdom <- names(kingdom_map)[kingdom_map == k & !is.na(kingdom_map)]
+  #     
+  #     if (length(tips_kingdom) > 0) {
+  #       # Get tip indices in tree
+  #       tip_indices <- which(tree$tip.label %in% tips_kingdom)
+  #       
+  #       # KEY: Highlight each tip INDIVIDUALLY, don't search for MRCA
+  #       # This works for non-monophyletic groups
+  #       for (tip_idx in tip_indices) {
+  #         # Get terminal node (leaf node)
+  #         # In phylo object, tips are nodes 1:Ntip
+  #         leaf_node <- tip_idx
+  #         
+  #         p <- p + 
+  #           geom_hilight(
+  #             node = leaf_node,
+  #             fill = viz_params$kingdom_colors[k],
+  #             extend = 1.0,           # KEY: Extend % toward center
+  #             to.bottom = TRUE        # KEY: Allow extension toward circular center
+  #           )
+  #       }
+  #       
+  #       cat("  ✓", k, ":", length(tip_indices), "tips highlighted\n")
+  #     }
+  #   }
+  #   
+  #   cat("✓ Individual tip backgrounds applied by Kingdom\n")
+  #   cat("  Note: Each organism painted separately (works for mixed clades)\n")
+  # }
+}
+
+# # ═══════════════════════════════════════════════════════════════════════════
+# # VERIFICATION: Kingdom Assignment
+# # ═══════════════════════════════════════════════════════════════════════════
+# if (viz_params$kingdom_color_branch && exists("node_kingdom_data")) {
+#   cat("\n🔍 VERIFICATION: Kingdom Assignment\n")
+#   cat("═══════════════════════════════════════════════════════════\n")
+#   
+#   cat("\n📊 Kingdom distribution (original):\n")
+#   kingdom_counts <- table(p$data$Kingdom, useNA = "always")
+#   print(kingdom_counts)
+#   
+#   cat("\n📊 Kingdom_recursive distribution:\n")
+#   recursive_counts <- table(p$data$Kingdom_recursive, useNA = "always")
+#   print(recursive_counts)
+#   
+#   cat("\n📊 Internal nodes by Kingdom_recursive:\n")
+#   internal_kingdoms <- p$data %>%
+#     filter(!isTip) %>%
+#     count(Kingdom_recursive)
+#   print(internal_kingdoms)
+#   
+#   cat("═══════════════════════════════════════════════════════════\n\n")
+# }
+
+#############################################
+### STEP 3: Add Internal Node Points
+#############################################
+
+# Add circular markers at each bifurcation point
+# These provide visual anchor points for noof labels (bootstrap)
+p <- p + geom_nodepoint(
+  aes(subset = !isTip),
+  size = viz_params$node_point_size,
+  color = "black",
+  fill = viz_params$node_point_color,
+  shape = 21,
+  alpha = 1.0
+)
+
+cat("✓ Internal node points added\n")
+
+#############################################
+### STEP 4: Add Bootstrap Support Values
+#############################################
+
+if (tree_stats$has_bootstrap) {
+  # Extract UFBoot values from IQ-TREE format (SH-aLRT/UFBoot)
+  # Example: "99.5/100" → extract "100" (UFBoot)
+  p$data$bootstrap_value <- sapply(p$data$label, function(x) {
+    if (is.na(x) || x == "") return(NA)
+    
+    if (grepl("/", x)) {
+      # Split on "/" and take second value
+      parts <- strsplit(as.character(x), "/")[[1]]
+      if (length(parts) >= 2) return(as.numeric(parts[2]))
+    }
+    
+    # No "/" found, try direct conversion
+    return(suppressWarnings(as.numeric(x)))
+  })
+  
+  # Calculate text rotation for circular layout
+  # Flip text 180° on left side (90°-270°) to keep readable
+  p$data$bootstrap_angle <- sapply(p$data$angle, function(a) {
+    if (is.na(a)) return(0)
+    a <- a %% 360
+    if (a > 90 && a < 270) return(a + 180)
+    return(a)
+  })
+  
+  # Add bootstrap text to nodes
+  p <- p + geom_text2(
+    aes(
+      label = bootstrap_value,
+      subset = !isTip & !is.na(bootstrap_value) & 
+               bootstrap_value > viz_params$bootstrap_threshold,
+      angle = if(viz_params$rotate_branch_text && viz_params$layout == "circular") 
+                bootstrap_angle else 0
+    ),
+    size = viz_params$bootstrap_size,
+    color = viz_params$bootstrap_color,
+    vjust = 1.3,
+    hjust = 0.5,
+    fontface = "bold",  
+    nudge_x = viz_params$bootstrap_nudge_x  # 0 = automatic positioning
+  )
+  
+  cat("✓ Bootstrap values added (UFBoot threshold >", 
+      viz_params$bootstrap_threshold, ")\n")
+}
+
+#############################################
+### STEP 5: Add Branch Length Values
+#############################################
+
+if (tree_stats$has_branch_lengths && viz_params$show_branch_length) {
+  # Calculate text rotation for circular layout
+  p$data$branch_length_angle <- sapply(p$data$angle, function(a) {
+    if (is.na(a)) return(0)
+    a <- a %% 360
+    if (a > 90 && a < 270) return(a + 180)
+    return(a)
+  })
+  
+  # Add branch length text at midpoint of each branch
+  p <- p + geom_text2(
+    aes(
+      label = sprintf("%.3f", branch.length),
+      x = branch,  # Position at branch midpoint
+      subset = !is.na(branch.length) & 
+               branch.length > viz_params$branch_length_threshold,
+      angle = if(viz_params$rotate_branch_text && viz_params$layout == "circular") 
+                branch_length_angle else 0
+    ),
+    size = viz_params$branch_length_size,
+    color = viz_params$branch_length_color,
+    vjust = -0.5,
+    hjust = 0.5,
+    fontface = "italic"  # Traditional: italic for measurements
+  )
+  
+  cat("✓ Branch lengths added\n")
+}
+
+#############################################
+### STEP 6: Add points at tips with Early diverging configuration
+#############################################
+# Applies shape and fill color based on Early metadata
+if (viz_params$use_metadata && 
+    viz_params$metadata_early_column %in% colnames(tree_with_metadata)) {
+  
+  # Create mapping from labels to Early
+  early_map <- setNames(
+    tree_with_metadata[[viz_params$metadata_early_column]],
+    tree_with_metadata$clean_label_final
+  )
+  
+  # Add Early to plot data
+  p$data$Early <- early_map[p$data$label]
+  
+  # Apply SHAPE and COLOR (without multiple layers, alpha = 1.0)
+  if (viz_params$early_point_shape && viz_params$early_point_fill_color) {
+    p <- p + 
+      geom_tippoint(
+        aes(shape = Early, fill = Early),
+        size = viz_params$tip_point_size,
+        color = "black",
+        alpha = 1.0  # Sin transparencia
+      ) +
+      scale_shape_manual(
+        values = viz_params$early_shapes,
+        name = "Early Diverging"
+      ) +
+      scale_fill_manual(
+        values = viz_params$early_colors,
+        name = "Early Diverging"
+      )
+    cat("✅ Tip points with shape AND color by Early (alpha=1.0)\n")
+    
+  } else if (viz_params$early_point_shape) {
+    p <- p + 
+      geom_tippoint(
+        aes(shape = Early),
+        size = viz_params$tip_point_size,
+        color = "black",
+        fill = viz_params$tip_point_color,
+        alpha = 1.0
+      ) +
+      scale_shape_manual(
+        values = viz_params$early_shapes,
+        name = "Early Diverging"
+      )
+    cat("✅ Tip points with shape by Early (alpha=1.0)\n")
+    
+  } else if (viz_params$early_point_fill_color) {
+    p <- p + 
+      geom_tippoint(
+        aes(fill = Early),
+        size = viz_params$tip_point_size,
+        shape = 21,
+        color = "black",
+        alpha = 1.0
+      ) +
+      scale_fill_manual(
+        values = viz_params$early_colors,
+        name = "Early Diverging"
+      )
+    cat("✅ Tip points with color by Early (alpha=1.0)\n")
+  }
+  
+} else {
+  # Without Early metadata
+  p <- p + 
+    geom_tippoint(
+      size = viz_params$tip_point_size,
+      color = "black",
+      fill = viz_params$tip_point_color,
+      shape = 21,
+      alpha = 1.0
+    )
+  cat("✅ Simple tip points (alpha=1.0)\n")
+}
+
+#############################################
+### STEP 7: Add tip labels with Kingdom options
+#############################################
+# Applies text coloring or background based on configuration
+
+# ──────────────────────────────────────────────────────────────────────────
+# OPTION 3: Text color by Kingdom
+# ──────────────────────────────────────────────────────────────────────────
+if (viz_params$use_metadata && 
+    viz_params$kingdom_color_text && 
+    !viz_params$kingdom_background_text) {
+  p <- p + 
+    geom_tiplab(
+      aes(color = Kingdom),
+      size = viz_params$tip_size,
+      align = viz_params$align_tips,
+      offset = viz_params$label_offset,
+      hjust = 0
+    ) +
+    scale_color_manual(
+      values = viz_params$kingdom_colors,
+      name = "Kingdom",
+      na.value = "black"
+    )
+  cat("✓ Tip labels with text color by Kingdom\n")
+
+# ──────────────────────────────────────────────────────────────────────────
+# OPTION 4: Text background by Kingdom
+# ──────────────────────────────────────────────────────────────────────────
+} else if (viz_params$use_metadata && 
+           viz_params$kingdom_background_text && 
+           !viz_params$kingdom_color_text) {
+  p <- p + 
+    geom_tiplab(
+      aes(fill = Kingdom),
+      size = viz_params$tip_size,
+      align = viz_params$align_tips,
+      offset = viz_params$label_offset,
+      hjust = 0,
+      color = "black",      # Black text
+      geom = "label",       # Use label for background
+      label.padding = unit(0.15, "lines"),
+      label.size = 0        # No border
+    ) +
+    scale_fill_manual(
+      values = viz_params$kingdom_colors,
+      name = "Kingdom",
+      na.value = "black"
+    )
+  cat("✓ Tip labels with background color by Kingdom\n")
+
+# ──────────────────────────────────────────────────────────────────────────
+# No Kingdom coloring (black text, transparent background)
+# ──────────────────────────────────────────────────────────────────────────
+} else {
+  p <- p + 
+    geom_tiplab(
+      size = viz_params$tip_size,
+      align = viz_params$align_tips,
+      offset = viz_params$label_offset,
+      hjust = 0,
+      color = "black"
+    )
+  cat("✓ Tip labels with standard format (black)\n")
+}
+
+#############################################
+### STEP 8: Add Kingdom Lateral Strip
+#############################################
+
+if (viz_params$use_metadata && 
+    viz_params$show_strip_kingdom &&
+    viz_params$metadata_kingdom_column %in% colnames(tree_with_metadata)) {
+  
+  cat("\n📊 Adding Kingdom lateral strip...\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 1: Create Kingdom mapping from tree_with_metadata
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  # Extract Kingdom mapping
+  kingdom_strip_map <- setNames(
+    tree_with_metadata[[viz_params$metadata_kingdom_column]],
+    tree_with_metadata$clean_label_final  # ✅ Uses clean_label_final
+  )
+  
+  # Verify Kingdom mapping
+  cat("  Verificando mapeo Kingdom...\n")
+  cat("    Total tips en árbol:", length(tree$tip.label), "\n")
+  cat("    Tips con Kingdom asignado:", sum(!is.na(kingdom_strip_map)), "\n")
+  cat("    Tips sin Kingdom:", sum(is.na(kingdom_strip_map)), "\n")
+
+  # Show Kingdom distribution
+  kingdom_counts <- table(kingdom_strip_map, useNA = "ifany")
+  cat("  Distribución de Kingdoms:\n")
+  print(kingdom_counts)
+  cat("\n")
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 2: Extract data from p$data and apply mapping
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  strip_kingdom_data <- p$data %>%
+    dplyr::filter(isTip) %>%
+    dplyr::select(label) %>%
+    dplyr::filter(!is.na(label) & label != "") %>%
+    dplyr::mutate(
+      label_base = stringr::str_remove(label, " \\[.*\\]$"),
+      value = dplyr::coalesce(
+        kingdom_strip_map[label],
+        kingdom_strip_map[label_base]
+      )
+    )
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # STEP 3: Verify that we have valid data
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  # Verify that all kingdoms have a color assigned
+  unique_kingdoms_in_data <- unique(strip_kingdom_data$value[!is.na(strip_kingdom_data$value)])
+  missing_colors <- setdiff(unique_kingdoms_in_data, names(viz_params$kingdom_colors))
+
+  if (length(missing_colors) > 0) {
+    cat("  ⚠️  WARNING: These Kingdoms don't have colors assigned:\n")
+    cat("     ", paste(missing_colors, collapse = ", "), "\n")
+    cat("     They will appear BLACK in the strip\n\n")
+  }
+
+  # Show Kingdom colors to be used
+  cat("  Kingdom colors to be used:\n")
+  for (k in unique_kingdoms_in_data) {
+    color_hex <- viz_params$kingdom_colors[k]
+    if (is.na(color_hex)) color_hex <- "BLACK (missing!)"
+    cat("    ", k, "→", color_hex, "\n")
+  }
+  cat("\n")
+
+  if (nrow(strip_kingdom_data) == 0) {
+    cat("  ⚠️  Warning: No Kingdom data available for strip\n")
+    cat("     Skipping Kingdom strip\n")
+    
+  } else if (sum(!is.na(strip_kingdom_data$value)) == 0) {
+    cat("  ⚠️  Warning: All Kingdom values are NA\n")
+    cat("     Skipping Kingdom strip\n")
+    
+  } else {
+    
+  # ═════════════════════════════════════════════════════════════════════
+  # STEP 4: Calculate offset base
+  # ═════════════════════════════════════════════════════════════════════
+  
+  if (viz_params$show_strip_kingdom) {
+    
+    if (viz_params$strip_kingdom_offset_mode == "dynamic") {
+      # ─────────────────────────────────────────────────────────────────
+      # MODO PHYLOGRAM: Offset based on maximum distance from tips
+      # ─────────────────────────────────────────────────────────────────
+      
+      # Estimate average width of labels (more conservative)
+      avg_label_length <- mean(nchar(tree$tip.label))
+      estimated_label_width <- avg_label_length / 120
+      
+      # Offset = label_offset + estimated width + small padding
+      base_offset_kingdom <- viz_params$label_offset + 
+                             estimated_label_width + 
+                             viz_params$strip_kingdom_offset_padding
+    } else {
+      # ─────────────────────────────────────────────────────────────────
+      # CLADOGRAM MODE: Fixed offset (original method)
+      # ─────────────────────────────────────────────────────────────────
+      
+      estimated_label_width <- (viz_params$strip_kingdom_fixed_max_chars * 
+                                viz_params$tip_size) / 12
+      
+      base_offset_kingdom <- viz_params$label_offset + 
+                             estimated_label_width + 
+                             viz_params$strip_kingdom_offset_padding
+    }
+  }
+    
+  # ═════════════════════════════════════════════════════════════════════
+  # STEP 5: Add strip to plot
+  # ═════════════════════════════════════════════════════════════════════
+  
+  p <- p + 
+    ggnewscale::new_scale_fill() +  # 🔴 CRITICAL: Reset fill scale
+    ggtreeExtra::geom_fruit(
+      data = strip_kingdom_data,
+      geom = geom_tile,
+      mapping = aes(y = label, x = 1, fill = value),  # ✅ Uses 'value'
+      width = viz_params$strip_kingdom_width,
+      offset = base_offset_kingdom,
+      pwidth = 0.1,
+      axis.params = list(
+        axis = "x",
+        text.size = 0,
+        line.size = 0
+      )
+    ) +
+    scale_fill_manual(
+      values = viz_params$kingdom_colors,
+      name = viz_params$strip_kingdom_label,
+      na.value = "black",
+      na.translate = TRUE,
+      breaks = names(viz_params$kingdom_colors),
+      drop = FALSE
+    )
+  
+  # Save total width for subsequent strips
+  strip_kingdom_total_width <- viz_params$strip_kingdom_width + 
+                               viz_params$strip_kingdom_offset
+    
+  cat("✅ Kingdom strip added successfully\n")
+  cat("  • Width:", viz_params$strip_kingdom_width, "\n")
+  cat("  • Offset:", base_offset_kingdom, "\n")
+  cat("  • Tips with Kingdom:", sum(!is.na(strip_kingdom_data$value)), 
+      "/", nrow(strip_kingdom_data), "\n\n")
+  }
+  
+} else if (viz_params$show_strip_kingdom && !viz_params$use_metadata) {
+  cat("⚠️  Kingdom strip requested but metadata disabled\n")
+}
+
+# #############################################
+# ### STEP: Add Tip Points with Metadata Shapes
+# #############################################
+# 
+# if (viz_params$use_metadata && exists("tree_with_metadata") && 
+#     viz_params$shape_by_metadata2 != "none") {
+#   
+#   shape_col <- viz_params$shape_by_metadata2
+#   
+#   if (shape_col %in% colnames(tree_with_metadata)) {
+#     # Map metadata values to cleaned tip labels
+#     shape_vals <- tree_with_metadata[[shape_col]]
+#     names(shape_vals) <- tree_with_metadata$clean_label_final
+#     p$data$shape_group <- shape_vals[p$data$label]
+#     
+#     # Add points with metadata-based shapes
+#     p <- p + geom_tippoint(
+#       aes(shape = shape_group),
+#       size = viz_params$tip_point_size,
+#       color = "black",
+#       fill = viz_params$tip_point_color,
+#       alpha = 1.0
+#     )
+#     
+#     # Define shape mapping for Early divergence
+#     if (shape_col == "Early") {
+#       p <- p + scale_shape_manual(
+#         values = c("Yes" = 24, "No" = 21),  # Triangle vs Circle
+#         name = "Early Diverging",
+#         na.value = 23
+#       )
+#     }
+#     
+#     cat("✓ Tip points added with shapes (", shape_col, ")\n", sep = "")
+#   }
+# } else {
+#   # Add uniform tip points
+#   p <- p + geom_tippoint(
+#     size = viz_params$tip_point_size,
+#     color = "black",
+#     fill = viz_params$tip_point_color,
+#     shape = 21,
+#     alpha = 1.0
+#   )
+#   
+#   cat("✓ Tip points added\n")
+# }
+# 
+# #############################################
+# ### STEP: Add Tip Labels with Metadata Colors
+# #############################################
+# 
+# if (viz_params$use_metadata && exists("tree_with_metadata") && 
+#     viz_params$color_by_metadata1 != "none") {
+#   
+#   color_col <- viz_params$color_by_metadata1
+#   
+#   if (color_col %in% colnames(tree_with_metadata)) {
+#     # Map metadata values to cleaned tip labels
+#     color_vals <- tree_with_metadata[[color_col]]
+#     names(color_vals) <- tree_with_metadata$clean_label_final
+#     p$data$color_group <- color_vals[p$data$label]
+#     
+#     # Add colored labels
+#     p <- p + geom_tiplab(
+#       aes(color = color_group),
+#       size = viz_params$tip_size,
+#       align = viz_params$align_tips,
+#       offset = viz_params$label_offset,
+#       hjust = 0,
+#       fontface = 4
+#     )
+#     
+#     # Apply color palette based on metadata type
+#     if (color_col == "Kingdom") {
+#       # Scientific publication color palette
+#       # Based on Nature/Cell color schemes
+#       kingdom_colors <- c(
+#         "Fungi" = "#E57373",               # Soft coral
+#         "Chromista" = "#64B5F6",           # Sky blue
+#         "Viridiplantae" = "#81C784",       # Mint green
+#         "Archaea" = "#FFB74D",             # Amber
+#         "Monera" = "#BA68C8",              # Lavender
+#         "Protista" = "#4DB6AC",            # Teal
+#         "Metazoa" = "#FF8A65"              # Salmon
+#       )
+#       
+#       p <- p + scale_color_manual(
+#         values = kingdom_colors,
+#         name = "Kingdom",
+#         na.value = "gray50"
+#       )
+#       
+#     } else if (color_col == "Early") {
+#       # Binary color scheme for Early divergence
+#       p <- p + scale_color_manual(
+#         values = c("Yes" = "#E57373", "No" = "#64B5F6"),
+#         name = "Early Diverging",
+#         na.value = "gray50"
+#       )
+#       
+#     } else {
+#       # Default palette for other metadata
+#       p <- p + scale_color_brewer(
+#         palette = "Set3",
+#         name = color_col,
+#         na.value = "gray50"
+#       )
+#     }
+#     
+#     # Configure legend
+#     if (viz_params$show_metadata_legend) {
+#       p <- p + theme(
+#         legend.position = "right",
+#         legend.background = element_rect(fill = "white", color = "gray80"),
+#         legend.text = element_text(size = 10),
+#         legend.title = element_text(size = 12, face = "bold")
+#       )
+#     }
+#     
+#     cat("✓ Tip labels added with colors (", color_col, ")\n", sep = "")
+#   }
+# } else {
+#   # Add uniform black labels
+#   p <- p + geom_tiplab(
+#     size = viz_params$tip_size,
+#     align = viz_params$align_tips,
+#     offset = viz_params$label_offset,
+#     hjust = 0,
+#     fontface = 4
+#   )
+#   
+#   cat("✓ Tip labels added\n")
+# }
+
+#############################################
+### STEP 9: Add lateral strip (Ecological Category)
+#############################################
+
+if (viz_params$show_strip_considered && 
+    viz_params$strip_considered_column %in% colnames(tree_with_metadata)) {
+  
+  cat("\n📊 Adding Considered (Ecological Category) strip...\n")
+  
+  # ──────────────────────────────────────────────────────────────────
+  # STEP 1: Create mapping from metadata
+  # ──────────────────────────────────────────────────────────────────
+  strip_considered_map <- setNames(
+    tree_with_metadata[[viz_params$strip_considered_column]],
+    tree_with_metadata$clean_label_final
+  )
+  
+  # ──────────────────────────────────────────────────────────────────
+  # STEP 2: Extract data from p$data (synchronized)
+  # ──────────────────────────────────────────────────────────────────
+  strip_considered_data <- p$data %>%
+    dplyr::filter(isTip) %>%
+    dplyr::select(label) %>%
+    dplyr::filter(!is.na(label) & label != "") %>%
+    dplyr::mutate(
+      value = strip_considered_map[label]
+    )
+  
+  # ──────────────────────────────────────────────────────────────────
+  # STEP 3: Verify we have valid data
+  # ──────────────────────────────────────────────────────────────────
+  
+  if (nrow(strip_considered_data) == 0) {
+    cat("  ⚠️  Warning: No Considered data available for strip\n")
+    cat("     Skipping Considered strip\n")
+    
+  } else if (sum(!is.na(strip_considered_data$value)) == 0) {
+    cat("  ⚠️  Warning: All Considered values are NA\n")
+    cat("     Skipping Considered strip\n")
+    
+  } else {
+    
+    # ──────────────────────────────────────────────────────────────────
+    # STEP 4: Calculate cumulative offset
+    # ──────────────────────────────────────────────────────────────────
+    
+    if (exists("base_offset_kingdom") && viz_params$show_strip_kingdom) {
+      # Si ya existe Kingdom strip, usar su offset como base
+      cumulative_offset <- base_offset_kingdom + 
+                           viz_params$strip_kingdom_width + 
+                           viz_params$strip_considered_offset
+      
+    } else if (viz_params$strip_kingdom_offset_mode == "dynamic") {
+      # Modo phylogram SIN Kingdom strip previo
+      tip_data <- p$data %>%
+        dplyr::filter(isTip) %>%
+        dplyr::select(label, x)
+      
+      max_tip_distance <- max(tip_data$x, na.rm = TRUE)
+      max_label_length <- max(nchar(tree$tip.label))
+      estimated_label_width <- (max_label_length * viz_params$tip_size) / 15
+      
+      cumulative_offset <- max_tip_distance + 
+                           estimated_label_width + 
+                           viz_params$strip_considered_offset
+      
+    } else {
+      # Modo cladogram SIN Kingdom strip previo
+      max_label_length <- max(nchar(tree$tip.label))
+      estimated_label_width <- (max_label_length * viz_params$tip_size) / 15
+      cumulative_offset <- viz_params$label_offset + 
+                           estimated_label_width + 
+                           viz_params$strip_considered_offset
+    }
+    
+    cat("  📏 Considered strip offset:", round(cumulative_offset, 2), "\n")
+    
+    # ──────────────────────────────────────────────────────────────────
+    # STEP 5: Add strip to plot
+    # ──────────────────────────────────────────────────────────────────
+    
+    p <- p + 
+      ggnewscale::new_scale_fill() +  # 🔴 CRITICAL: Reset fill scale
+      ggtreeExtra::geom_fruit(
+        data = strip_considered_data,
+        geom = geom_tile,
+        mapping = aes(y = label, x = 1, fill = value),
+        width = viz_params$strip_considered_width,
+        offset = cumulative_offset,
+        pwidth = 0.1,
+        axis.params = list(
+          axis = "x",
+          text.size = 0,
+          line.size = 0
+        )
+      ) +
+      scale_fill_manual(
+        values = viz_params$strip_considered_colors,
+        name = viz_params$strip_considered_label,
+        na.value = "black",
+        na.translate = TRUE
+      )
+    
+    # Save total width for future strips (if needed)
+    strip_considered_total_width <- viz_params$strip_considered_width + 
+                                     viz_params$strip_considered_offset
+    
+    cat("✅ Considered strip added successfully\n")
+    cat("  • Width:", viz_params$strip_considered_width, "\n")
+    cat("  • Offset:", cumulative_offset, "\n")
+    cat("  • Tips with category:", sum(!is.na(strip_considered_data$value)), 
+        "/", nrow(strip_considered_data), "\n\n")
+  }
+  
+} else if (viz_params$show_strip_considered && !viz_params$use_metadata) {
+  cat("⚠️  Considered strip requested but metadata disabled\n")
+}
+
+
+#############################################
+### STEP 10: Highlight Specific Clades
+#############################################
+
+if (viz_params$highlight_clades && length(viz_params$highlight_genera) > 0) {
+  # Find tips matching highlight genera
+  for (genus in viz_params$highlight_genera) {
+    # Get tips that start with genus name
+    highlight_tips <- tree$tip.label[grepl(paste0("^", genus), tree$tip.label)]
+    
+    # if (length(highlight_tips) > 0) {
+    # Find MRCA (Most Recent Common Ancestor) of highlighted tips
+    mrca_node <- getMRCA(tree, highlight_tips)
+      
+    if (!is.null(mrca_node)) {
+       p <- p + geom_hilight(
+         node = mrca_node,
+         fill = viz_params$highlight_color,
+         alpha = viz_params$highlight_alpha
+      )
+    cat("✓ Clade highlighted:", genus, "(node", mrca_node, ")\n")
+    }
+  }
+}
+
+#############################################
+### STEP 11: Final Layout Adjustments
+#############################################
+
+# Expand plotting area to prevent label cutoff
+p <- p + hexpand(10) + vexpand(10)
+
+# Add title
+p <- p + ggtitle(
+  paste("Phylogenetic Tree -", 
+        tools::file_path_sans_ext(basename(input_file)))
+) + theme(
+  plot.title = element_text(size = 16, face = "bold", hjust = 0.5)
+)
+
+# Add scale bar if requested
+if (viz_params$add_scale_bar) {
+  p <- p + geom_treescale(
+    x = 0,
+    y = 0,
+    width = 0.5,
+    offset = 1,
+    fontsize = 3,
+    linesize = 0.5,
+    color = "black"
+  )
+  cat("✓ Scale bar added\n")
+}
+
+#############################################
+### STEP 12: Verification Phylum Annotations
+###############################VALIDACIÓN: Verific##############
+
+if (viz_params$show_phylum_labels && exists("tree")) {
+  
+  cat("\n╔═══════════════════════════════════════════════════════════╗\n")
+  cat("║            PHYLUM ANNOTATION VERIFICATION                 ║\n")
+  cat("╚═══════════════════════════════════════════════════════════╝\n\n")
+  
+  # Verify that labels have [Abb] annotations
+  labels_with_phylum <- grepl("\\[.+\\]$", tree$tip.label)
+  n_annotated <- sum(labels_with_phylum)
+  n_total <- length(tree$tip.label)
+  
+  cat("📊 Annotation status:\n")
+  cat("  • Tips with Phylum:", n_annotated, "/", n_total, "\n")
+  cat("  • Coverage:", round(n_annotated/n_total*100, 1), "%\n\n")
+  
+  # Show some examples
+  cat("📝 Sample annotated labels (first 5):\n")
+  sample_labels <- head(tree$tip.label[labels_with_phylum], 5)
+  for (i in seq_along(sample_labels)) {
+    cat("  ", i, ". ", sample_labels[i], "\n", sep = "")
+  }
+  
+  # Show legend
+  cat("\n")
+  print_phylum_legend(tree)
+  
+  cat("═══════════════════════════════════════════════════════════\n\n")
+}
+
+# Display tree
+print(p)
+cat("\n✓ Tree visualization completed successfully\n")
+```
+
+# 9. Export High-Quality Figures
+
+```{r export}
+#############################################
+### FIGURE EXPORT WORKFLOW
+#############################################
+# Exports phylogenetic tree in multiple formats for different use cases:
+#
+# PRIMARY OUTPUTS:
+#   1. SVG (Scalable Vector Graphics)
+#      - Infinite resolution scaling
+#      - Ideal for publication and post-processing
+#      - Editable in Adobe Illustrator, Inkscape
+#      - Small file size
+#
+#   2. PNG (Portable Network Graphics)
+#      - Raster format with high DPI
+#      - Universal compatibility (PowerPoint, Word, web)
+#      - Transparent background support
+#      - Higher file size but widely supported
+#
+# OPTIONAL OUTPUTS:
+#   3. Separate legend file (SVG)
+#      - For multi-panel figures
+#      - Allows independent legend positioning
+#
+#   4. Phylum legend documentation (TSV, TXT, PDF)
+#      - For manuscript figure captions
+#      - Reference tables for abbreviations
+
+#############################################
+### EXPORT 1: Vector Format (SVG)
+#############################################
+# SVG is the preferred format for scientific publications because:
+#   - Resolution-independent (scales infinitely without quality loss)
+#   - Text remains editable and searchable
+#   - Small file size compared to high-res raster images
+#   - Can be imported into illustration software for final touches
+#   - Meets journal requirements for vector graphics
+
+cat("\n╔════════════════════════════════════════╗\n")
+cat("║       EXPORTING FIGURES                ║\n")
+cat("╚════════════════════════════════════════╝\n\n")
+
+cat("📊 Exporting SVG (vector format)...\n")
+
+ggsave(
+  filename = export_params$output_svg,
+  plot = p,
+  device = svglite,                          # svglite package for high-quality SVG
+  width = export_params$width,               # figure width in inches
+  height = export_params$height,             # figure height in inches
+  units = "in"                               # measurement units
+)
+
+cat("✅ SVG exported successfully\n")
+cat("   File:", export_params$output_svg, "\n")
+cat("   Size:", export_params$width, "×", export_params$height, "inches\n")
+cat("   Use for: Publication, Illustrator editing\n\n")
+
+#############################################
+### EXPORT 2: Raster Format (PNG)
+#############################################
+# PNG is exported for situations requiring raster graphics:
+#   - Presentations (PowerPoint, Keynote)
+#   - Word documents and reports
+#   - Web display and social media
+#   - Quick previews without vector software
+#
+# DPI (dots per inch) determines output quality:
+#   - 72-96 DPI: Screen display, web use
+#   - 150 DPI: Draft quality printing
+#   - 300 DPI: Standard publication quality (RECOMMENDED)
+#   - 600+ DPI: High-end publication, large prints
+
+cat("🖼️  Exporting PNG (raster format)...\n")
+
+ggsave(
+  filename = export_params$output_png,
+  plot = p,
+  device = "png",                            # PNG device (base R)
+  width = export_params$width,
+  height = export_params$height,
+  units = "in",
+  dpi = export_params$dpi                    # resolution in dots per inch
+)
+
+cat("✅ PNG exported successfully\n")
+cat("   File:", export_params$output_png, "\n")
+cat("   Size:", export_params$width, "×", export_params$height, "inches\n")
+cat("   Resolution:", export_params$dpi, "DPI\n")
+cat("   Use for: PowerPoint, Word, web display\n\n")
+
+#############################################
+### EXPORT 3: Separate Legend (Optional)
+#############################################
+# Exports legend as standalone file for advanced figure composition
+#
+# Use cases:
+#   - Multi-panel figures with shared legend
+#   - Custom legend placement outside main figure
+#   - Figure panels submitted separately to journals
+#   - Flexible layout design in Illustrator/Inkscape
+#
+# The legend is extracted as a separate grob (graphical object)
+# and saved with dimensions optimized for standalone use
+
+if (viz_params$use_metadata && viz_params$show_metadata_legend) {
+  
+  cat("🎨 Exporting separate legend...\n")
+  
+  # Extract legend as independent graphical object
+  legend <- cowplot::get_legend(p)
+  
+  # Export legend as SVG (vector format for quality)
+  ggsave(
+    filename = export_params$output_legend,
+    plot = legend,
+    device = svglite,
+    width = 3,                               # narrower width for legend
+    height = 4,                              # height adjusted for legend content
+    units = "in"
+  )
+  
+  cat("✅ Legend exported successfully\n")
+  cat("   File:", export_params$output_legend, "\n")
+  cat("   Size: 3×4 inches (optimized for legend)\n")
+  cat("   Use for: Multi-panel figures, custom layouts\n\n")
+}
+
+#############################################
+### EXPORT 4: Phylum Legend Documentation (Optional)
+#############################################
+# Exports Phylum abbreviation reference in multiple formats
+#
+# Generated files:
+#   1. TSV: Machine-readable table for spreadsheets (Excel, R, Python)
+#   2. TXT: Human-readable formatted text for copy-paste to manuscripts
+#   3. PDF: Visual reference table for presentations/supplementary materials
+#
+# These files are essential for:
+#   - Figure captions (explaining [Abb] annotations)
+#   - Supplementary materials
+#   - Collaborator reference
+#   - Future reuse and reproducibility
+
+if (viz_params$show_phylum_labels && !is.null(attr(tree, "phylum_legend"))) {
+  
+  cat("📚 Exporting Phylum legend documentation...\n")
+  
+  # Export in all three formats
+  legend_files <- export_phylum_legend_to_file(
+    tree = tree,
+    output_dir = output_dir,
+    gene_name = file
+  )
+  
+  cat("\n✅ Phylum legend exported in 3 formats:\n")
+  cat("   1. TSV (spreadsheet):", basename(legend_files$tsv), "\n")
+  cat("      → Import in Excel/R for data analysis\n")
+  cat("   2. TXT (formatted):", basename(legend_files$txt), "\n")
+  cat("      → Copy to figure caption in manuscript\n")
+  cat("   3. PDF (visual):", basename(legend_files$pdf), "\n")
+  cat("      → Reference table for presentations\n\n")
+}
+
+#############################################
+### EXPORT SUMMARY
+#############################################
+
+cat("╔════════════════════════════════════════╗\n")
+cat("║    EXPORT COMPLETED SUCCESSFULLY       ║\n")
+cat("╚════════════════════════════════════════╝\n\n")
+
+cat("📁 Output directory:", output_dir, "\n\n")
+
+cat("📊 Files generated:\n")
+cat("   ✓ Main figure (SVG):", basename(export_params$output_svg), "\n")
+cat("   ✓ Main figure (PNG):", basename(export_params$output_png), "\n")
+
+if (viz_params$use_metadata && viz_params$show_metadata_legend) {
+  cat("   ✓ Separate legend:", basename(export_params$output_legend), "\n")
+}
+
+if (viz_params$show_phylum_labels && !is.null(attr(tree, "phylum_legend"))) {
+  cat("   ✓ Phylum legend (3 formats)\n")
+}
+
+cat("\n💡 Next steps:\n")
+cat("   1. Review SVG file in vector editor (Illustrator/Inkscape)\n")
+cat("   2. Use PNG for presentations and documents\n")
+cat("   3. Include Phylum legend in figure caption\n")
+cat("   4. Check file sizes and quality before submission\n\n")
+```
+
+# 10. Generate Presence/Absence Tables
+
+```{r presence_absence}
+#############################################
+### INDIVIDUAL GENE TABLE GENERATION
+#############################################
+# Creates binary matrix showing which organisms contain this gene
+#
+# This workflow generates ONLY individual gene tables
+# The consolidated table is generated by the batch processing script
+#
+# Individual gene table format:
+#   - One table per gene analyzed
+#   - Shows which organisms have this specific gene
+#   - Includes metadata (Kingdom, Phylum, TaxID, UniProt ID)
+#   - Format: TSV file with TRUE/FALSE values
+#   - Location: phylogenetic/{hormone}/09_presence-absence/{gene}.tsv
+
+# ═══════════════════════════════════════════════════════════════════════
+# Check if table generation is enabled
+# ═══════════════════════════════════════════════════════════════════════
+
+if (generate_presence_absence) {
+  
+  cat("\n╔═══════════════════════════════════════╗\n")
+  cat("║   GENERATING GENE TABLE               ║\n")
+  cat("╚═══════════════════════════════════════╝\n\n")
+  
+  cat("📊 Table generation parameters:\n")
+  cat("   Hormone category:", hormone, "\n")
+  cat("   Current gene:", file, "\n")
+  cat("   Output directory:", presence_absence_dir, "\n\n")
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Verify metadata availability
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  if (!exists("metadata") || is.null(metadata)) {
+    cat("⚠️  Warning: Metadata not loaded. Attempting to load now...\n")
+    
+    if (file.exists(metadata_file)) {
+      metadata <- load_metadata(metadata_file)
+      cat("✓ Metadata loaded successfully\n\n")
+    } else {
+      cat("❌ ERROR: Cannot generate table without metadata file.\n")
+      cat("   Expected location:", metadata_file, "\n")
+      cat("   Skipping table generation.\n\n")
+      generate_presence_absence <- FALSE
+    }
+  }
+  
+  # ═══════════════════════════════════════════════════════════════════════
+  # Generate Individual Gene Table
+  # ═══════════════════════════════════════════════════════════════════════
+  
+  if (generate_presence_absence && exists("metadata")) {
+    
+    cat("🧬 Generating table for gene:", file, "\n")
+    
+    # Generate table with full metadata integration
+    presence_table <- generate_presence_absence_table(
+      tree_tips = tree$tip.label,
+      metadata = metadata,
+      tree_with_metadata = tree_with_metadata,
+      gene_name = file,
+      output_file = presence_absence_file
+    )
+    
+    cat("\n✅ Individual gene table created successfully\n")
+    cat("   Location:", presence_absence_file, "\n")
+    cat("   Organisms:", nrow(presence_table), "\n\n")
+    
+    # ═══════════════════════════════════════════════════════════════════
+    # Information about consolidated table
+    # ═══════════════════════════════════════════════════════════════════
+    
+    cat("ℹ️  Consolidated table generation:\n")
+    cat("   Individual gene tables are created by this script\n")
+    cat("   The consolidated table (merged-genes.tsv) is created by:\n")
+    cat("     • The batch processing script (phylogenetic-tree_batch.R)\n")
+    cat("     • After all genes have been processed\n")
+    cat("     • Location: phylogenetic/", hormone, "/merged-genes.tsv\n\n", sep = "")
+  }
+  
+} else {
+  cat("\n⏭️  Table generation skipped\n")
+  cat("   Reason: 'generate_presence_absence' = FALSE\n")
+  cat("   To enable: Set generate_presence_absence = TRUE\n\n")
+}
+```
+
+# 11. Final Summary
+
+```{r summary}
+#############################################
+### ANALYSIS SUMMARY
+#############################################
+
+cat("\n╔═══════════════════════════════════════╗\n")
+cat("║   ANALYSIS COMPLETED SUCCESSFULLY     ║\n")
+cat("╚═══════════════════════════════════════╝\n\n")
+
+cat("📁 Input file:", input_file, "\n")
+cat("🌳 Tree statistics:\n")
+cat("   - Taxa (tips):", tree_stats$n_tips, "\n")
+cat("   - Internal nodes:", tree_stats$n_nodes, "\n")
+cat("   - Layout:", viz_params$layout, "\n")
+cat("   - Mode:", ifelse(viz_params$branch_length_mode == "none", 
+                          "Cladogram", "Phylogram"), "\n\n")
+
+if (viz_params$use_metadata && exists("match_result")) {
+  cat("📊 Metadata integration:\n")
+  cat("   - Tips matched:", match_result$report$matched, 
+      "(", match_result$report$match_rate, "%)\n")
+  cat("   - Colored by:", viz_params$color_by_metadata1, "\n")
+  cat("   - Shaped by:", viz_params$shape_by_metadata2, "\n\n")
+}
+
+if (viz_params$highlight_clades) {
+  cat("🎨 Highlighted clades:", 
+      paste(viz_params$highlight_genera, collapse = ", "), "\n\n")
+}
+
+cat("💾 Output files:\n")
+cat("   - Main figure (SVG):", export_params$output_svg, "\n")
+cat("   - Main figure (PNG):", export_params$output_png, "\n")
+
+if (viz_params$use_metadata && viz_params$show_metadata_legend) {
+  cat("   - Separate legend:", export_params$output_legend, "\n")
+}
+
+cat("\n✓ Ready for publication or further analysis\n")
+```
+
+# 12. Session Information
+
+```{r session_info}
+#############################################
+### REPRODUCIBILITY INFORMATION
+#############################################
+# Record all package versions and system information
+# Essential for reproducible research
+
+sessionInfo()
+```
+
+# Appendix: Parameter Guide
+
+## Quick Reference for Common Adjustments
+
+### Making Bootstrap More/Less Prominent
+
+```r
+# SUBTLE (publication style)
+viz_params$bootstrap_size <- 1.8
+viz_params$bootstrap_color <- "#424242"  # Dark gray
+viz_params$bootstrap_nudge_x <- 0        # Automatic positioning
+
+# PROMINENT (presentation style)
+viz_params$bootstrap_size <- 2.5
+viz_params$bootstrap_color <- "firebrick"  # Red
+viz_params$bootstrap_nudge_x <- -0.05      # Move toward center
+```
+
+### Adjusting Tree Size for Different Taxa Counts
+
+```r
+# SMALL TREES (< 30 taxa)
+viz_params$tip_size <- 3.0
+viz_params$bootstrap_size <- 2.5
+viz_params$branch_length_size <- 2.3
+viz_params$tip_point_size <- 3.0
+viz_params$center_circle_size <- -0.05
+
+# LARGE TREES (> 100 taxa)
+viz_params$tip_size <- 1.8
+viz_params$bootstrap_size <- 1.5
+viz_params$branch_length_size <- 1.6
+viz_params$tip_point_size <- 1.2
+viz_params$center_circle_size <- -0.15
+```
+
+### Color Scheme Alternatives
+
+```r
+# GRAYSCALE (for B&W publications)
+viz_params$branch_color <- "black"
+viz_params$bootstrap_color <- "gray30"
+viz_params$branch_length_color <- "gray50"
+viz_params$tip_point_color <- "gray20"
+viz_params$node_point_color <- "gray40"
+
+# HIGH CONTRAST (for presentations)
+viz_params$bootstrap_color <- "#E74C3C"  # Bright red
+viz_params$branch_length_color <- "#3498DB"  # Bright blue
+```
+
+### Understanding `nudge_x` for Bootstrap
+
+```r
+# VALUE GUIDE:
+# nudge_x = 0    : Automatic (RECOMMENDED) - positions at node center
+# nudge_x = -0.1 : Far toward tree center (may overlap with branches)
+# nudge_x = -0.05: Moderate toward center (good for dense trees)
+# nudge_x = -0.02: Slight toward center (subtle adjustment)
+# nudge_x = 0.02 : Slight toward tips
+# nudge_x = 0.05 : Moderate toward tips (may overlap with labels)
+```
+**End of Document**

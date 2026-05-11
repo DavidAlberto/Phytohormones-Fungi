@@ -1,0 +1,54 @@
+cff-version: 1.2.0
+message: >-
+  If you use this pipeline in your research, please cite both the software
+  repository (below) and the associated article (see preferred-citation).
+title: >-
+  Phytohormones-Fungi: a reproducible phylogenomic pipeline for
+  cross-kingdom homolog detection and analysis
+authors:
+  - family-names: "García-Estrada"
+    given-names: "David Alberto"
+    orcid: "https://orcid.org/0009-0007-1169-5329"
+    affiliation: >-
+      Center for Research in Advanced Materials (CIMAV), Chihuahua, México
+version: "1.1.0"
+date-released: "2026-05-15"
+license: MIT
+repository-code: "https://github.com/DavidAlberto/Phytohormones-Fungi"
+doi: "10.5281/zenodo.XXXXXXX"  # Pending
+url: "https://github.com/DavidAlberto/Phytohormones-Fungi"
+abstract: >-
+  A reproducible bioinformatics pipeline for identifying, curating, and
+  phylogenetically analyzing homologs of phytohormone-associated genes in
+  filamentous fungi and across kingdoms. The pipeline integrates a custom
+  taxonomically curated protein database, cross-kingdom BLASTp and profile
+  HMM searches with complete-domain validation, phylogeny-aware sequence
+  alignment, and maximum-likelihood phylogenetic inference with bootstrap
+  support.
+keywords:
+  - phylogenomics
+  - bioinformatics
+  - fungi
+  - phytohormones
+  - cytokinin
+  - Trichoderma atroviride
+  - homolog detection
+  - blast
+  - iqtree
+  - reproducible-research
+preferred-citation:
+  type: article
+  title: >-
+    When Fungi Speak the Language of Plants: Shared Phytohormones with
+    Divergent Meanings
+  authors:
+    - family-names: "García-Estrada"
+      given-names: "David Alberto"
+      orcid: "https://orcid.org/0009-0007-1169-5329"
+  # Add remaining co-authors below following the same pattern:
+  # - family-names: "LastName"
+  #   given-names: "FirstName"
+  journal: "ASM Microbiology Society"
+  year: 2026
+  notes: "Manuscript submitted"
+  # doi: ""   # Add DOI when available

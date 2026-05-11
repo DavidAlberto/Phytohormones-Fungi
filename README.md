@@ -1,919 +1,489 @@
 # Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements?
 
-This repository describes a **reproducible bioinformatics workflow** designed to identify, curate, and analyze homologs of phytohormone-associated genes in filamentous fungi. The strategy integrates sequence similarity searches, phylogenetic reconstruction, and structural modeling to support evolutionary and functional inference.
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Bioinformatics](https://img.shields.io/badge/field-Bioinformatics-blue.svg)]()
-[![Phylogenetics](https://img.shields.io/badge/analysis-Phylogenetics-green.svg)]()
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![Bioinformatics](https://img.shields.io/badge/field-Bioinformatics-blue.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
+[![Phylogenetics](https://img.shields.io/badge/analysis-Phylogenomics-green.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
+
+This repository contains the complete, reproducible bioinformatics pipeline used in the study of phytohormone-associated gene homologs across the fungal tree of life. The workflow integrates a taxonomically curated custom protein database, cross-kingdom homology detection with domain architecture validation, phylogeny-aware sequence alignment, and maximum-likelihood phylogenetic inference.
+
+> **Associated publication:**
+> García-Estrada, D.A., et al. (2026). *When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings*. ASM Microbiology Society. (Manuscript submitted)
 
 ---
 
 ## Table of Contents
 
-* **[Overview](#overview)**
-* **[Installation](#installation)**
-   * [Conda Environment](#conda-environment)
-   * [Docker Image](#docker-image)
-* **[Data Requirements](#data-requirements)**
-* **[Pipeline Steps](#pipeline-steps)**
-   * [1. Construction of Custom Protein Database](#1-construction-of-a-custom-protein-database)
-   * [2. Selection of Seed Sequences](#2-selection-of-seed-sequences)
-   * [3. Homology Detection via BLASTp](#3-homology-detection-via-blastp)
-   * [4. Filtering and Curation of BLAST Results](#4-filtering-and-curation-of-blast-results)
-   * [5. Sequence Retrieval](#5-sequence-retrieval)
-   * [6. Multiple Sequence Alignment](#6-multiple-sequence-alignment)
-   * [7. Phylogeny-Aware Alignment Refinement](#7-phylogeny-aware-alignment-refinement)
-   * [8. Phylogenetic Inference](#8-phylogenetic-inference)
-   * [9. Phylogenetic Tree Visualization](#9-phylogenetic-tree-visualization)
-   * [10. Structural Modeling](#10-structural-modeling-complementary-analysis)
-* **[Example Usage](#example-usage)**
-* **[Directory Structure](#directory-structure)**
-* **[Software Requirements](#software-requirements)**
-* **[Reproducibility Considerations](#reproducibility-considerations)**
-* **[Applications](#applications)**
-* **[Best Practices](#best-practices)**
-* **[Contributing](#contributing)**
-* **[Citation](#citation)**
-* **[License](#license)**
-* **[Acknowledgments](#acknowledgments)**
-* **[Contact](#contact)**
-* **[FAQ](#faq)**
+- [Overview](#overview)
+- [Repository structure](#repository-structure)
+- [Installation](#installation)
+- [Pipeline](#pipeline)
+  - [Phase 1 — Custom database construction](#phase-1--custom-database-construction)
+  - [Phase 2A — Seed expansion](#phase-2a--seed-expansion-cross-kingdom-search)
+  - [Phase 2B — BLASTp against the custom database](#phase-2b--blastp-against-the-custom-database)
+  - [Phase 2C — Phylogenetic inference](#phase-2c--phylogenetic-inference)
+  - [Phase 2D — Tree visualization](#phase-2d--tree-visualization)
+  - [Phase 3 — Structural comparison](#phase-3--structural-comparison)
+- [Data requirements](#data-requirements)
+- [Software requirements](#software-requirements)
+- [Reproducibility](#reproducibility)
+- [Citation](#citation)
+- [License](#license)
+- [Contact](#contact)
 
 ---
 
 ## Overview
 
-The pipeline was conceived to:
+The pipeline is divided into two sequential phases. **Phase 1** constructs a non-redundant protein database from 234 organisms spanning the full fungal tree of life and key outgroups (Viridiplantae, Metazoa, Bacteria, Archaea). **Phase 2** performs homology detection, curation, and phylogenetic inference using that database.
 
-- Select reliable **seed sequences** based on curated functional evidence
-- Identify homologs using **BLASTp searches** against custom fungal databases
-- **Filter and curate** BLAST results to select best hits per organism
-- **Extract sequences** systematically from multifasta databases
-- Generate high-quality multiple sequence alignments
-- Infer robust phylogenetic relationships
-- **Visualize phylogenies** with integrated taxonomic metadata
-- Support structural interpretation through **AlphaFold** models
+The *Trichoderma atroviride* v3 proteome (the primary study organism, currently unpublished) was incorporated manually into the database and is not downloaded by the automated scripts.
 
-The workflow is platform-agnostic and can be adapted to any gene family of interest.
+```mermaid
+flowchart TD
+    A["**Phase 1**
+    organisms.tsv 234 taxa — Fungi, Bacteria, 
+    Viridiplantae, Metazoa"] --> B["download_proteomes.sh UniProt ref → reviewed → complete → NCBI RefSeq fallback"]
+    B --> C["prepare_blastdb.sh Header standardization TaxID-prefix + makeblastdb → hormoneDB"]
+    M["*T. atroviride* v3 unpublished —
+    added manually"] --> C
+
+    D["Plant seed sequences
+    Experimentally characterized
+    SwissProt / literature"] --> E0{"**Phase 2A**
+    Seed expansion
+    Manual curation"}
+    
+    E0 --> F["BLASTp → NCBI
+    Initial cross-kingdom search"]
+
+    E0 --> E["hmmscan_domains.sh
+    hmmscan --cut_tc vs Pfam-A
+    Discover domain architecture
+    per seed protein"]
+    E --> G["search_hmm_ids.sh
+    hmmsearch against *T. atroviride* v3"]
+    G --> H["domain_search_script.sh
+    Complete domain architecture
+    validation — all domains required"]
+    F --> I["Expanded and validated seeds
+    multi-kingdom representatives"]
+    H --> I
+
+    C --> J["**Phase 2B**
+    blastp_batch.sh
+    BLOSUM45 · e≤1×10⁻⁵
+    word_size=3 · SEG=yes"]
+    I --> J
+    J --> K["blastp-analysis.Rmd
+    Best hit per Query–Organism
+    bitscore → qcovs → pident → evalue"]
+    K --> L["extract_sequences_batch.sh
+    + GetSeqsFromFasta.py"]
+
+    L --> N["**Phase 2C**
+    phylo_pipeline.sh
+    seqkit rmdup → CD-HIT 99%
+    MAFFT → FastTree → PRANK
+    trimAl → IQ-TREE3 MFP+LG+C60"]
+
+    N --> O["**Phase 2D**
+    phylogenetic-tree.Rmd
+    phylogenetic-tree_batch.R
+    ggtree + Kingdom / Phylum metadata"]
+    O --> P["Publication figures
+    SVG · PNG"]
+    
+    N --> Q["**Phase 3**
+    AlphaFold v3
+    Structural modeling"]
+    Q --> R["ChimeraX
+    RMSD structural comparison"]
+```
+
+**Phase 2A** uses two independent methods (BLASTp and profile HMM search) to find cross-kingdom homologs of plant seed sequences. A candidate was accepted only if it possessed the **complete domain architecture** of the reference protein — sequences missing any expected domain were excluded. Candidate selection in this phase was performed manually by the authors.
+
+**Phase 2B–D** applies the expanded, validated seed set against the custom database, curates one representative sequence per organism per gene family, and infers maximum-likelihood phylogenies with statistical support.
+
+---
+
+## Repository structure
+
+```
+Phytohormones-Fungi/
+│
+├── README.md                        # This file
+├── LICENSE                          # MIT License
+├── CITATION.cff                     # Citation metadata
+├── env/
+│   ├──environment.yml               # Conda environment
+│   └──environment.lock.linux-64.yml # Exact locked environment used in the study
+├── scripts/                         # All pipeline scripts
+│   ├── README.md                    # Script-level documentation (inputs, outputs, rationale)
+│   │
+│   ├── # Phase 1 — Database construction
+│   ├── 01-download_proteomes.sh
+│   ├── 02-prepare_blastdb.sh
+│   │
+│   ├── # Phase 2A — Seed expansion (HMM-based)
+│   ├── 03-hmmscan_domains.sh
+│   ├── 04-extract_hmm_ids.sh
+│   ├── 05-generate_hmm_consensus.sh
+│   ├── 06-search_hmm_ids.sh
+│   ├── 07-domain_search_script.sh
+│   │
+│   ├── # Phase 2B — BLASTp and curation
+│   ├── 08-blastp_batch.sh
+│   ├── 09-blastp-analysis.Rmd
+│   ├── 10-extract_sequences_batch.sh
+│   ├── GetSeqsFromFasta.py
+│   │
+│   ├── # Phase 2C–D — Phylogenetics and visualization
+│   ├── 11-phylo_pipeline.sh
+│   ├── 12-phylogenetic-tree.Rmd
+│   └── 12-phylogenetic-tree_batch.R
+│
+├── data/
+│   ├── organisms.tsv                # List of organisms used to build the DB
+│   └── metadata.tsv                 # Organism, TaxIDs, Kingdom, Phylum, Early, etc.
+│
+└── docker/
+    └── Dockerfile                   # Container with all command-line dependencies
+```
+
+> **Note on large files:** Protein databases (`hormoneDB.fasta`, proteome FASTA files) and analysis outputs (alignments, tree files) are not tracked in Git due to size.
 
 ---
 
 ## Installation
 
-### Conda Environment
+### Option 1 — Conda (recommended)
 
-We provide a Conda environment file with all required dependencies for the phylogenetic analysis pipeline.
+Two environment files are provided to balance reproducibility and portability.
 
-> **💡 Tip:** If you prefer not to manage dependencies, use our [Docker image](#docker-image) which has everything pre-installed and tested.
-
-**Option 1: Create environment from YAML file**
-
+**Cross-platform (recommended for new users):**
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/phytohormone-phylogenomics.git
-cd phytohormone-phylogenomics
+git clone https://github.com/DavidAlberto/Phytohormones-Fungi.git
+cd Phytohormones-Fungi
 
-# Create the conda environment
-conda env create -f environment.yml
-
-# Activate the environment
+conda env create -f env/environment.yml
 conda activate hormone-phylo
 ```
 
-**Option 2: Manual environment creation**
-
-Create the environment with the exact versions we tested:
-
+**Exact environment used in the study (Linux x86-64 only):**
 ```bash
-# Create a new conda environment
-conda create -n hormone-phylo python=3.12
-
-# Activate the environment
+conda create --name hormone-phylo --file env/environment.lock.linux-64.yml
 conda activate hormone-phylo
-
-# Install bioinformatics tools with tested versions
-conda install -c bioconda -c conda-forge \
-  blast=2.17.0 \
-  mafft=7.526 \
-  fasttree=2.1.11 \
-  trimal=1.5.0 \
-  iqtree=3.0.1 \
-  seqkit=2.10.1 \
-  cd-hit=4.8.1 \
-  hmmer=3.4 \
-  prank \
-  biopython \
-  numpy
 ```
 
-**Verify installation:**
-
+**Verify key tools:**
 ```bash
-# Check versions of key tools
-blastp -version          # Should show BLAST 2.17.0+
-mafft --version          # Should show v7.526
-iqtree3 --version        # Should show IQ-TREE multicore version 3.0.1
-trimal --version         # Should show trimAl v1.5.0
+blastp -version
+mafft --version
+iqtree3 --version
+trimal --version
+hmmscan -h
 ```
 
----
-
-### Docker Image
-
-We provide a Docker image with all dependencies pre-installed for maximum reproducibility and portability across different systems. The image contains all software versions tested and validated for this pipeline.
-
-**Pull the Docker image:**
-
-```bash
-docker pull davidalbertoge/hormone-analysis:latest
-```
-
-**Run the container:**
-
-```bash
-# Run interactively with current directory mounted
-docker run -v $(pwd):/home/ -it davidalbertoge/hormone-analysis:latest
-```
-
-**What's included in the Docker image:**
-- All bioinformatics tools with tested versions
-- Pre-configured environment ready to run
-
-**Build from Dockerfile (optional):**
-
-```bash
-# Build the image locally from provided Dockerfile
-docker build -t hormone-analysis:local .
-
-# Run your local build
-docker run -v $(pwd):/home/ -it hormone-analysis:local
-```
-
----
-
-## Data Requirements
-
-### Input Data
-
-**1. Proteome Databases**
-
-The pipeline requires protein sequence databases from target organisms. We recommend the following sources:
-
-| Database | Source | Format | URL |
-|----------|--------|--------|-----|
-| **UniProt** | Reviewed proteins (Swiss-Prot) | FASTA | https://www.uniprot.org/downloads |
-| **NCBI RefSeq** | Reference protein sequences | FASTA | https://www.ncbi.nlm.nih.gov/refseq/ |
-| **JGI MycoCosm** | Fungal genomes | FASTA | https://mycocosm.jgi.doe.gov/ |
-| **FungiDB** | Fungal genomics resource | FASTA | https://fungidb.org/ |
-
-**2. Seed Sequences**
-
-Experimentally characterized protein sequences used as BLAST queries:
-
-- Should be in FASTA format
-- One file per gene family or multiple families in separate files
-- Headers should contain gene names and organism information
-
-**Example seed sequence format:**
-
-```
->sp|P12345|GENE_ORGANISM Gene description OS=Organism name OX=12345 GN=geneName
-MAKTPVQIWSFLKDHGFSDKHGFKJHGFKJDHGFKJDHGF...
-```
-
-**3. Taxonomic Metadata**
-
-For phylogenetic tree visualization, prepare a metadata file with:
-
-| Column | Description | Example |
-|--------|-------------|---------|
-| TaxID | NCBI Taxonomy ID | 5476 |
-| Organism | Scientific name | Candida albicans |
-| Kingdom | Taxonomic kingdom | Fungi |
-| Phylum | Taxonomic phylum | Ascomycota |
-| EarlyDivergent | Basal lineage flag | TRUE/FALSE |
-
-**Metadata file format (TSV):**
-
-```tsv
-TaxID	Organism	Kingdom	Phylum	EarlyDivergent
-5476	Candida albicans	Fungi	Ascomycota	FALSE
-367110	Neurospora crassa	Fungi	Ascomycota	FALSE
-284811	Aspergillus fumigatus	Fungi	Ascomycota	FALSE
-```
-
-### AlphaFold Requirements
-
-If using AlphaFold for structural modeling:
-
-**AlphaFold web server**: https://alphafold.ebi.ac.uk/
-
-### ChimeraX Requirements
-
-For structural visualization:
-
-- **Download**: https://www.cgl.ucsf.edu/chimerax/download.html
-- **Platform**: Available for Linux, macOS, and Windows
-- **License**: Free for non-commercial use
-- **System**: OpenGL 3.3 or later required
-
----
-
-## Pipeline Steps
-
-### 1. Construction of a Custom Protein Database
-
-Proteomes from selected organisms were integrated into a **non-redundant multifasta database** representing the taxonomic diversity relevant to the study. This database constituted the search space for downstream homology detection.
-
-**Database construction:**
-
-```bash
-# Concatenate individual proteome files into a single multifasta
-cat organism1.fasta organism2.fasta organism3.fasta > fungal_proteomes.fasta
-
-# Create BLAST database
-makeblastdb -in fungal_proteomes.fasta -dbtype prot -out fungal_db
-```
-
-**Key considerations:**
-- Headers should follow a consistent format (e.g., `TaxID|source|UniProtID|...`)
-- Document the taxonomic composition of the database
-
----
-
-### 2. Selection of Seed Sequences
-
-Initial queries were chosen based on:
-
-- **Sequence homology** to experimentally characterized proteins
-- Presence of expected functional features described in the literature
-- Structural conservation of key catalytic or regulatory domains
-
-This step ensured that only biologically meaningful references were used to initiate similarity searches, minimizing propagation of misannotated sequences.
-
-**Criteria for seed selection:**
-- Proteins with experimental validation (in literature)
-- Complete sequences with well-defined domain architecture
-- Representatives from diverse taxonomic groups when applicable
-
----
-
-### 3. Homology Detection via BLASTp
-
-Candidate homologs were identified using BLASTp against the custom database with parameters optimized for divergent fungal proteins.
-
-**BLASTp execution:**
-
-```bash
-blastp \
-  -query seeds.fasta \
-  -db fungal_db \
-  -out blastp_results.tsv \
-  -evalue 0.00001 \
-  -word_size 3 \
-  -matrix BLOSUM45 \
-  -seg yes \
-  -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovs qlen slen"
-```
-
-**Parameter rationale:**
-- **E-value threshold (0.00001)**: Stringent cutoff for statistical significance
-- **Word size (3)**: Increased sensitivity for detecting divergent homologs
-- **Matrix (BLOSUM45)**: Optimized for evolutionarily distant sequences
-- **SEG filter (yes)**: Masks low-complexity regions to reduce spurious hits
-
-**Output format:**
-- Extended tabular format (outfmt 6) with 15 columns
-- Includes query coverage (`qcovs`) and sequence lengths (`qlen`, `slen`)
-
----
-
-### 4. Filtering and Curation of BLAST Results
-
-Raw BLAST results were systematically filtered to retain only high-quality hits and eliminate redundancy. The filtering process addressed a critical challenge: **selecting the best hit per organism** when multiple paralogs or isoforms were detected.
-
-**Filtering strategy:**
-
+**R packages**
 ```r
-# Filtering criteria applied:
-# 1. Minimum identity: ≥30%
-# 2. Minimum query coverage: ≥50%
-# 3. Organism extraction from subject IDs
-# 4. Selection of best hit per Query-Organism pair
+install.packages(c("tidyverse", "svglite", "here", "ape", "phangorn", "gridExtra"))
 
-# Prioritization for best hit selection:
-# 1. Bit score (highest) - alignment quality
-# 2. Query coverage (highest) - % of query aligned
-# 3. Percent identity (highest) - sequence similarity
-# 4. E-value (lowest) - statistical significance
-```
-
-**Key innovation:**
-- Organism IDs were extracted from subject sequence headers (TaxID or species code)
-- Multiple hits from the same organism were consolidated to a **single best representative**
-- This approach ensures one sequence per organism per query, facilitating downstream phylogenetic analysis
-
-**Quality control metrics:**
-- Distribution of identity percentages
-- Query coverage statistics
-- E-value ranges
-- Number of organisms per gene family
-
-**Outputs:**
-- Consolidated table with best hits per Query-Organism combination
-- Individual tables for each query gene
-- Statistical summary of filtering results
-- Visualization of quality metrics (identity vs. coverage)
-
----
-
-### 5. Sequence Retrieval
-
-Selected hits were systematically retrieved from the multifasta database based on their sequence IDs.
-
-**Extraction process:**
-
-```bash
-# Extract subject IDs from filtered BLAST results
-awk '{print $2}' filtered_results.tsv > sequence_ids.txt
-
-# Remove duplicate IDs
-sort -u sequence_ids.txt > unique_ids.txt
-
-# Extract sequences from database
-# Using BioPython or similar tools
-seqkit grep -f unique_ids.txt fungal_proteomes.fasta > extracted_sequences.fasta
-```
-
-**Quality checks:**
-- Verify all IDs were successfully retrieved
-- Check for truncated or incomplete sequences
-- Confirm sequence lengths match expected protein sizes
-- Remove sequences with extensive gaps or ambiguous residues
-
----
-
-### 6. Multiple Sequence Alignment
-
-High-quality MSAs were generated for each protein family using progressive alignment strategies.
-
-**Initial alignment:**
-
-```bash
-mafft --auto --reorder curated_sequences.fasta > alignment.fasta
-```
-
-**MAFFT parameters:**
-- `--auto`: Automatically selects alignment strategy based on dataset size
-- `--reorder`: Orders sequences by similarity for improved visualization
-
-**Alignment considerations:**
-- Conservation of catalytic and regulatory motifs
-- Proper alignment of domain boundaries
-- Detection of divergent or potentially mispredicted regions
-- Identification of regions requiring manual curation
-
----
-
-### 7. Phylogeny-Aware Alignment Refinement
-
-To improve alignment quality, a guide tree was used to inform positional homology inference.
-
-**Guide tree generation:**
-
-```bash
-FastTree -lg -gamma -nosupport alignment.fasta > guide.nwk
-```
-
-**Refinement with PRANK:**
-
-```bash
-prank -d=alignment.fasta \
-      -t=guide.nwk \
-      -protein +F -termgap -iterate=3 \
-      -showtree -showanc -uselogs -shortnames
-```
-
-**PRANK advantages:**
-- Distinguishes insertions from deletions based on phylogeny
-- Preserves insertion events as positional homologs
-- Iteratively refines alignment (3 iterations recommended)
-
-**Trimming poorly aligned regions:**
-
-```bash
-trimal -in prank.best.fas \
-       -out alignment_trimmed.fasta \
-       -automated1 \
-       -htmlout report.html
-```
-
-**trimAl parameters:**
-- `-automated1`: Heuristic method balancing alignment quality and information retention
-- HTML report provides visual assessment of trimmed positions
-
----
-
-### 8. Phylogenetic Inference
-
-Gene trees were reconstructed using maximum-likelihood with extended model exploration and statistical support estimation.
-
-**IQ-TREE execution:**
-
-```bash
-iqtree3 --prefix analysis \
-        -s alignment_trimmed.fasta \
-        -m MFP \
-        -madd LG+C60,LG+F+C60 \
-        -B 1000 \
-        -alrt 1000 \
-        -bnni \
-        -T AUTO \
-        --symtest
-```
-
-**IQ-TREE parameters:**
-- `-m MFP`: ModelFinder Plus for automatic model selection
-- `-madd LG+C60,LG+F+C60`: Include profile mixture models for heterogeneous data
-- `-B 1000`: Ultrafast bootstrap with 1000 replicates
-- `-alrt 1000`: SH-aLRT test for additional support assessment
-- `-bnni`: Optimize bootstrap trees with NNI
-- `--symtest`: Test for symmetry in substitution patterns
-
-**Statistical support:**
-- UFBoot ≥95%: Strong support
-- SH-aLRT ≥80%: Additional confidence measure
-- Both metrics reported at internal nodes
-
-**Tree interpretation:**
-The resulting topologies were used to:
-- Distinguish orthologous clades
-- Detect lineage-specific expansions or losses
-- Propose functional diversification events
-- Identify potential horizontal gene transfer candidates
-
----
-
-### 9. Phylogenetic Tree Visualization
-
-Phylogenetic trees were visualized with integrated taxonomic metadata to enhance biological interpretation.
-
-**Visualization approach:**
-
-```r
-# Tree visualization with ggtree in R
-# Features:
-# - Cladogram or phylogram layouts
-# - Bootstrap support values displayed at nodes
-# - Branch lengths optionally shown
-# - Tips colored by taxonomic Kingdom
-# - Tips shaped by Phylum
-# - Highlighting of specific clades
-
-# Metadata integration:
-# - TaxID-based matching with tip labels
-# - Multiple matching strategies for robustness
-# - Color schemes optimized for clarity
-# - Phylum abbreviations for space efficiency
-```
-
-**Key visualization elements:**
-
-1. **Layout options:**
-   - Cladogram (topology-focused)
-   - Phylogram (branch length-based)
-
-2. **Statistical support:**
-   - UFBoot/SH-aLRT values at internal nodes
-   - Configurable size and positioning
-   - Color-coded thresholds (optional)
-
-3. **Taxonomic metadata:**
-   - **Kingdom**: Color-coded labels (e.g., Fungi, Viridiplantae, Metazoa)
-   - **Phylum**: Shape-coded tip points
-   - **Early divergence**: Special notation for basal lineages
-
-4. **Clade highlighting:**
-   - Visual emphasis on taxonomic groups of interest
-   - Configurable transparency and colors
-
----
-
-### 10. Structural Modeling
-
-Representative sequences from major clades were modeled with **AlphaFold** to:
-
-- Evaluate conservation of active sites
-- Compare structural features among paralogs
-- Support functional hypotheses derived from phylogeny
-- Identify potential cryptic paralogs based on structural divergence
-
-**Structural analysis in ChimeraX:**
-
-- Conservation of catalytic triads or active site residues
-- Domain organization and relative positioning
-- Structural basis for functional diversification
-
----
-
-## Example Usage
-
-This section provides a complete walkthrough of the pipeline using example data.
-
-### Quick Start
-
-```bash
-# 1. Activate the conda environment
-conda activate hormone-phylo
-
-# 2. Navigate to your project directory
-cd phytohormone-phylogenomics
-
-# 3. Create directory structure
-mkdir -p data/{proteomes,seeds,blast,filtered,sequences,alignments,trees}
-
-# 4. Build BLAST database
-makeblastdb -in data/proteomes/fungal_db.fasta -dbtype prot -out data/proteomes/fungal_db
-
-# 5. Run BLAST search
-blastp \
-  -query data/seeds/IPT_seeds.fasta \
-  -db data/proteomes/fungal_db \
-  -out data/blast/IPT_results.tsv \
-  -evalue 0.00001 \
-  -word_size 3 \
-  -matrix BLOSUM45 \
-  -seg yes \
-  -outfmt "6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovs qlen slen"
-
-# 6. Filter BLAST results (using R)
-Rscript scripts/filter_blast_results.R \
-  --input data/blast/IPT_results.tsv \
-  --output data/filtered/IPT_filtered.tsv \
-  --min-identity 30 \
-  --min-coverage 50
-
-# 7. Extract sequences
-seqkit grep -f data/filtered/IPT_ids.txt \
-  data/proteomes/fungal_db.fasta \
-  > data/sequences/IPT_sequences.fasta
-
-# 8. Multiple sequence alignment
-mafft --auto --reorder \
-  data/sequences/IPT_sequences.fasta \
-  > data/alignments/IPT_mafft.fasta
-
-# 9. Generate guide tree
-FastTree -lg -gamma -nosupport \
-  data/alignments/IPT_mafft.fasta \
-  > data/alignments/IPT_guide.nwk
-
-# 10. Refine alignment with PRANK
-prank -d=data/alignments/IPT_mafft.fasta \
-      -t=data/alignments/IPT_guide.nwk \
-      -o=data/alignments/IPT_prank \
-      -protein +F -termgap -iterate=3
-
-# 11. Trim alignment
-trimal -in data/alignments/IPT_prank.best.fas \
-       -out data/alignments/IPT_trimmed.fasta \
-       -automated1
-
-# 12. Phylogenetic inference
-iqtree3 --prefix data/trees/IPT \
-        -s data/alignments/IPT_trimmed.fasta \
-        -m MFP \
-        -madd LG+C60,LG+F+C60 \
-        -B 1000 \
-        -alrt 1000 \
-        -bnni \
-        -T AUTO
-
-# 13. Visualize tree (using R)
-Rscript scripts/visualize_tree.R \
-  --tree data/trees/IPT.treefile \
-  --metadata data/metadata.tsv \
-  --output figures/IPT_tree.svg
-```
-
-### Example Output Structure
-
-```
-results/
-├── IPT/
-│   ├── 01_blast/
-│   │   └── IPT_results.tsv
-│   ├── 02_filtered/
-│   │   ├── IPT_filtered.tsv
-│   │   └── IPT_stats.txt
-│   ├── 03_sequences/
-│   │   └── IPT_sequences.fasta
-│   ├── 04_alignments/
-│   │   ├── IPT_mafft.fasta
-│   │   ├── IPT_prank.best.fas
-│   │   └── IPT_trimmed.fasta
-│   ├── 05_trees/
-│   │   ├── IPT.treefile
-│   │   ├── IPT.log
-│   │   └── IPT.iqtree
-│   └── 06_figures/
-│       ├── IPT_tree.svg
-│       ├── IPT_tree.png
-│       └── IPT_legend.svg
-└── CKX/
-    └── ... (similar structure)
-```
-
----
-
-## Directory Structure
-
-Recommended project organization for reproducibility:
-
-```
-phytohormone-phylogenomics/
-│
-├── README.md
-├── LICENSE
-├── environment.yml          # Conda environment specification
-├── Dockerfile               # Docker container specification
-│
-├── data/                    # Input data (not tracked in git)
-│   ├── proteomes/           # Protein sequence databases
-│   │   ├── organism1.fasta
-│   │   ├── organism2.fasta
-│   │   └── fungal_db.fasta  # Combined database
-│   ├── seeds/               # Query sequences
-│   │   ├── IPT_seeds.fasta
-│   │   ├── CKX_seeds.fasta
-│   │   └── ...
-│   └── metadata.tsv         # Taxonomic metadata
-│
-├── scripts/                 # Analysis scripts
-│   ├── filter_blast_results.R
-│   ├── visualize_tree.R
-│   ├── run_pipeline.sh
-│   └── fetch_taxonomy.py
-│
-├── results/                 # Analysis outputs (not tracked in git)
-│   ├── IPT/
-│   ├── CKX/
-│   └── ...
-│
-├── figures/                 # Publication-ready figures
-│   ├── IPT_tree.svg
-│   ├── IPT_tree.png
-│   └── ...
-│
-└── docs/                    # Additional documentation
-    ├── methods.md
-    └── supplementary.md
-```
-
-**Git configuration (.gitignore):**
-
-```
-# Large data files
-data/proteomes/
-results/
-*.fasta
-*.tsv
-*.nwk
-*.treefile
-
-# Temporary files
-*.log
-*.tmp
-*.bak
-
-# R files
-.Rhistory
-.RData
-.Rproj.user/
-
-# Python cache
-__pycache__/
-*.pyc
-```
-
----
-
-## Software Requirements
-
-### Core Tools
-
-The following table lists the **tested and validated versions** included in our Docker image and Conda environment:
-
-| Tool | Version | Purpose | Installation |
-|------|---------|---------|--------------|
-| **BLAST+** | 2.17.0 | Homology searches | `conda install -c bioconda blast=2.17.0` |
-| **MAFFT** | 7.526 | Multiple sequence alignment | `conda install -c bioconda mafft=7.526` |
-| **FastTree** | 2.1.11 | Guide tree generation | `conda install -c bioconda fasttree` |
-| **PRANK** | 170427 | Phylogeny-aware alignment refinement | `conda install -c bioconda prank` |
-| **trimAl** | 1.5.0 | Alignment trimming | `conda install -c bioconda trimal=1.5.0` |
-| **IQ-TREE** | 3.0.1 | Phylogenetic inference | `conda install -c bioconda iqtree=3.0.1` |
-| **CD-HIT** | 4.8.1 | Sequence clustering | `conda install -c bioconda cd-hit` |
-| **SeqKit** | 2.10.1 | Sequence manipulation | `conda install -c bioconda seqkit=2.10.1` |
-| **HMMER** | 3.4 | Profile HMM searches (optional) | `conda install -c bioconda hmmer=3.4` |
-
-**Optional tools:**
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| AlphaFold | ≥2.3.0 | Protein structure prediction |
-| ChimeraX | ≥1.5 | Structural visualization |
-
-### R Packages
-
-**Recommended R version:** ≥4.0.0
-
-**Data manipulation and filtering:**
-- `tidyverse` (≥1.3.0): Data wrangling and visualization
-- `dplyr` (≥1.0.0): Data frame manipulation
-- `stringr` (≥1.4.0): String operations
-
-**Phylogenetic visualization:**
-- `ggtree` (≥3.0.0): Tree visualization (Bioconductor)
-- `treeio` (≥1.16.0): Tree I/O operations (Bioconductor)
-- `ape` (≥5.5): Phylogenetic analysis
-- `phangorn` (≥2.8.0): Additional phylogenetic tools
-
-**Graphics and export:**
-- `ggplot2` (≥3.3.0): Grammar of graphics
-- `svglite` (≥2.1.0): SVG export
-- `ggnewscale` (≥0.4.0): Multiple scales in ggplot2
-- `here` (≥1.0.0): Project-relative paths
-
-**Installation:**
-```r
-# CRAN packages
-install.packages(c("tidyverse", "svglite", "here", "ape", "phangorn"))
-
-# Bioconductor packages
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install(c("ggtree", "treeio"))
 ```
 
-### System Requirements
+### Option 2 — Docker
 
-**Recommended:**
-- RAM: 16 GB (32 GB for large datasets)
-- Disk space: 100 GB (databases can be large)
-- CPU: 8+ cores (for parallel processing)
-- SSD storage (significantly improves I/O performance)
+```bash
+docker pull davidalbertoge/hormone-analysis:latest
+docker run -v $(pwd):/home/ -it davidalbertoge/hormone-analysis:latest
+```
 
----
+> The Docker image covers all command-line tools. R and R packages require separate installation or the Conda environment above.
 
-## Reproducibility Considerations
+### Conda path configuration
 
-The workflow relies exclusively on widely adopted tools in computational biology. We have tested and validated specific versions to ensure reproducibility across different systems.
+`phylo_pipeline.sh` initializes Conda from the path specified in the `CONDA_BASE` variable at the top of the script. The default is `~/miniconda3`. If your installation is elsewhere (e.g., `~/anaconda3`, `/opt/conda`), edit that variable before running:
 
-### Version Control and Compatibility
-
-- **Tested versions**: All tools have been validated with the versions listed in [Software Requirements](#software-requirements)
-- **Docker container**: Pre-configured environment available at `davidalbertoge/hormone-analysis:latest`
-- **Conda environment**: Reproducible environment specification provided in `environment.yml`
-- **Parameter transparency**: All critical parameters explicitly stated in each pipeline step
-- **Platform independence**: Runs on Linux, macOS, and Windows (with WSL2)
-
-### Ensuring Reproducibility
-
-1. **Use version-controlled software:**
-   ```bash
-   # Recommended: Use our Docker container
-   docker pull davidalbertoge/hormone-analysis:latest
-   
-   # Or create Conda environment with pinned versions
-   conda env create -f environment.yml
-   ```
-
-2. **Document your analysis:**
-   - Record exact command lines used
-   - Note any parameter changes from defaults
-   - Save log files from each step
-   - Version control your scripts with Git
-
-3. **Random seed handling:**
-   - Bootstrap analyses use random sampling
-   - IQ-TREE uses `-seed` parameter for reproducibility
-   - FastTree results may vary slightly between runs
-   - Document random seeds when applicable
-
-4. **Hardware considerations:**
-   - Number of CPU threads can affect results (especially with stochastic methods)
-   - Use `-T` parameter to control threads in IQ-TREE
-   - Memory allocation can impact performance but not results
+```bash
+# At the top of phylo_pipeline.sh — USER CONFIGURATION section
+readonly CONDA_BASE="$HOME/miniconda3"   # adjust as needed
+```
 
 ---
 
-## Applications
+## Pipeline
 
-This strategy is suitable for:
+### Phase 1 — Custom database construction
 
-- **Evolutionary reconstruction** of phytohormone-related pathways in fungi
-- **Identification of candidate functional homologs** for experimental validation
-- **Comparative analysis** of fungal signaling networks across taxonomic scales
-- **Detection of horizontal gene transfer** events
-- **Functional prediction** based on phylogenetic context
-- **Selection of targets** for structural or biochemical characterization
+**1.1 Download proteomes**
+
+Edit `data/organisms.tsv` to define the target organisms (one scientific name per line), then run:
+
+```bash
+bash scripts/01-download_proteomes.sh
+```
+
+Downloads one proteome per organism using a hierarchical fallback strategy (UniProt reference → reviewed → complete → NCBI RefSeq). Outputs are written to `proteomes/` and download manifests to `manifests/`.
+
+> **Important:** The *T. atroviride* v3 proteome must be added manually to `proteomes/` before the next step, named as `<TaxID>.fasta` following the same convention.
+
+**1.2 Build the BLAST database**
+
+```bash
+bash scripts/02-prepare_blastdb.sh
+
+# Then index for BLASTp:
+makeblastdb -in data/hormoneDB.fasta -dbtype prot -parse_seqids \
+            -out data/blastDB
+```
+
+Standardizes all FASTA headers to `>TaxID|original_header` format and merges all proteomes into `hormoneDB.fasta`.
 
 ---
 
-## Best Practices
+### Phase 2A — Seed expansion (cross-kingdom search)
 
-### General Recommendations
+This phase expands and validates the initial plant seed sequences using two independent methods before the main database search. Candidate selection was performed **manually** by the authors.
 
-1. **Seed sequence quality**: Use experimentally validated proteins when available
-2. **Database curation**: Remove redundant sequences and verify annotations
-3. **BLAST parameters**: Adjust word size and matrix based on evolutionary distance
-4. **Alignment inspection**: Manually verify critical motifs and domains
-5. **Model selection**: Allow IQ-TREE to explore multiple models
-6. **Bootstrap support**: Report both UFBoot and SH-aLRT values
-7. **Metadata integration**: Ensure taxonomic IDs are current and accurate
+**2A.0 Make HMMER database**
+
+```bash
+wget https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.hmm.gz
+mv Pfam-A.hmm.gz data/hmmerDB/.
+gunzip data/hmmerDB/Pfam-A.hmm.gz
+hmmpress data/hmmerDB/Pfam-A.hmm
+```
+
+**2A.1 Discover domain architecture of seed proteins**
+
+```bash
+bash scripts/03-hmmscan_domains.sh data/hmmerDB/Pfam-A.hmm \
+      input/hmmer/seed_proteins.fasta results/hmmer/hmmscan_domains
+```
+
+**2A.2 Fetch Pfam HMM profiles**
+
+```bash
+bash scripts/04-extract_hmm_ids.sh data/hmmerDB/Pfam-A.hmm \
+      input/hmmer/pfam_ids.txt results/hmmer/hmm_profiles/
+```
+
+**2A.3 Generate consensus sequences (optional)**
+
+```bash
+bash scripts/05-generate_hmm_consensus.sh \
+      results/hmmer/hmm_profiles/ results/hmmer/hmm_consensus/
+```
+
+**2A.4 Search HMMs against *T. atroviride* v3**
+
+```bash
+bash scripts/06-search_hmm_ids.sh results/hmmer/hmm_profiles/ \
+      data/proteomes/<TaxID_Tatroviride>.fasta results/hmmer/hmm_search/
+```
+
+**2A.5 Validate complete domain architecture**
+
+```bash
+bash scripts/07-domain_search_script.sh <PFAM_ID> input/hmmer/candidate_sequences.fasta \
+      results/hmmer/hmm_domains/<PFAM_ID>
+```
+
+Candidates passing both BLASTp similarity criteria and complete domain validation were used as expanded seeds in **Phase 2B**.
 
 ---
 
-## Contributing
+### Phase 2B — BLASTp against the custom database
 
-We welcome contributions to improve this pipeline! Here's how you can help:
+**2B.1 Run BLASTp in batch**
 
-### Reporting Issues
+Place expanded seed FASTA files in `input/hormone/` (one file per gene family), then:
 
-If you encounter bugs or have suggestions:
+```bash
+bash scripts/08-blastp_batch.sh
+```
 
-1. Check if the issue already exists in [Issues](https://github.com/DavidAlberto/Phytohormones-Fungi/issues)
-2. Create a new issue with:
-   - **Clear title** describing the problem
-   - **Steps to reproduce** the issue
-   - **Expected behavior** vs actual behavior
-   - **Environment details** (OS, software versions)
-   - **Error messages** or log files
+> **Parameters:** BLOSUM45 matrix, e-value ≤ 1×10⁻⁵, word size 3, SEG filter enabled, post-search filters ≥30% identity and ≥50% query coverage.
 
-### Submitting Changes
+**2B.2 Curate best hits per organism**
 
-1. **Fork the repository**
-   ```bash
-   git clone https://github.com/yourusername/phytohormone-phylogenomics.git
-   cd phytohormone-phylogenomics
-   ```
+Open and knit `scripts/09-blastp-analysis.Rmd` in RStudio, or render from the command line:
 
-2. **Create a feature branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+Selects one best hit per Query–Organism pair (priority: bit score → query coverage → percent identity → e-value). Outputs a consolidated TSV and individual TSVs per gene family.
 
-3. **Make your changes**
-   - Follow existing code style
-   - Add comments explaining complex steps
-   - Update documentation if needed
+**2B.3 Extract sequences**
 
-4. **Test your changes**
-   ```bash
-   # Run on test dataset
-   bash scripts/test_pipeline.sh
-   ```
+```bash
+bash scripts/10-extract_sequences_batch.sh
+```
 
-5. **Commit and push**
-   ```bash
-   git add .
-   git commit -m "Add feature: description"
-   git push origin feature/your-feature-name
-   ```
+Retrieves FASTA sequences from `hormoneDB.fasta` using the curated subject IDs.
 
-6. **Create a Pull Request**
-   - Describe what your changes do
-   - Reference any related issues
-   - Include example output if applicable
+---
 
-### Code of Conduct
+### Phase 2C — Phylogenetic inference
 
-- Be respectful and inclusive
-- Provide constructive feedback
-- Focus on the science and methodology
-- Acknowledge contributions from others
+Place the sequences from Phase 2B into `01_sequences/` (one FASTA per gene family), then:
+
+```bash
+bash scripts/11-phylo_pipeline.sh
+```
+
+The pipeline runs the following steps with checkpoints (completed steps are skipped on re-run):
+
+| Step | Tool | Purpose |
+|---|---|---|
+| Header rename | `awk` | Standardize to `Genus_Species_TaxID_UniprotID_GeneName` |
+| Deduplication | `seqkit rmdup` | Remove exact sequence duplicates |
+| Clustering | `cd-hit -c 0.99` | Remove sequences ≥99% identical |
+| Alignment | `mafft --auto --reorder` | Multiple sequence alignment |
+| Guide tree | `FastTree -lg -gamma` | Approximate ML tree for PRANK |
+| Alignment refinement | `prank -protein -iterate=3` | Phylogeny-aware alignment |
+| Trimming | `trimal -automated1` | Remove poorly aligned columns |
+| Phylogenetic inference | `iqtree3 MFP + LG+C60` | ML tree with bootstrap support |
+
+Outputs are written to numbered directories (`02_filtering/` through `07_iqtree/`).
+
+> **IQ-TREE model note:** `MFP` (ModelFinder Plus) explores standard substitution models. `-madd LG+C60,LG+F+C60` additionally tests profile mixture models, which better capture compositional heterogeneity across distantly related taxa spanning multiple kingdoms.
+
+> **Computational note:** The `LG+C60` models are substantially slower than standard models. Running on a dataset of ~150 sequences per gene family, IQ-TREE may require 1–12 hours per gene family depending on available CPU cores. Use `-T AUTO` (already set) to utilize all available threads.
+
+---
+
+### Phase 2D — Tree visualization
+
+**Single tree (interactive):**
+
+Open `scripts/12-phylogenetic-tree.Rmd` in RStudio, set the path to your `.treefile` and metadata file in the configuration section, then knit.
+
+**Batch processing (all gene families):**
+
+```bash
+Rscript scripts/12-phylogenetic-tree_batch.R
+```
+
+Generates cladogram and phylogram figures (SVG + PNG) for all trees in the IQ-TREE output directory. Tip labels are colored by Kingdom and shaped by Phylum using the taxonomy metadata file.
+
+---
+
+### Phase 3 — Structural comparison
+
+Representative sequences from major phylogenetic clades were modeled with **AlphaFold v2** and structural comparisons were performed in **ChimeraX** using RMSD as the similarity metric. This phase was conducted manually and is not automated by a script.
+
+- AlphaFold web server: <https://alphafold.ebi.ac.uk/>
+- ChimeraX download: <https://www.cgl.ucsf.edu/chimerax/>
+
+---
+
+## Data requirements
+
+### organisms.tsv
+
+Defines the 234 organisms used to build the custom database. Covers:
+
+- **Fungi:** Ascomycota, Basidiomycota, Chytridiomycota, Mucoromycota, Zoopagomycota, Blastocladiomycota, Microsporidia, and early-diverging lineages
+- **Outgroups:** Viridiplantae (embryophytes and algae), Metazoa (vertebrates and invertebrates), Bacteria (Proteobacteria, Cyanobacteria, Firmicutes, Actinobacteria, Thermotogae), Archaea, and unicellular eukaryotes
+
+The taxonomic breadth was deliberately designed to place fungal genes in a broad evolutionary context and assess phytohormone-associated gene distribution across the tree of life.
+
+### taxonomy_metadata.tsv
+
+Required by the visualization scripts. Tab-separated with the following columns:
+
+| Column | Description | Example |
+|---|---|---|
+| TaxID | NCBI Taxonomy ID | 5476 |
+| Organism | Scientific name | *Candida albicans* |
+| Kingdom | Taxonomic kingdom | Fungi |
+| Phylum | Taxonomic phylum | Ascomycota |
+| EarlyDivergent | Basal lineage flag | TRUE / FALSE |
+
+### Note on *T. atroviride* v3
+
+This proteome is currently unpublished and not available in public databases. It was incorporated manually into the custom database. Researchers wishing to reproduce the exact analysis may request it from the corresponding author.
+
+---
+
+## Software requirements
+
+### Command-line tools
+
+| Tool | Version tested | Purpose |
+|---|---|---|
+| BLAST+ | 2.17.0 | Homology searches |
+| MAFFT | 7.526 | Multiple sequence alignment |
+| FastTree | 2.2.0 | Guide tree generation |
+| PRANK | 170427 | Phylogeny-aware alignment refinement |
+| trimAl | 1.5.0 | Alignment trimming |
+| IQ-TREE | 3.0.1 | Phylogenetic inference |
+| CD-HIT | 4.8.1 | Sequence clustering |
+| SeqKit | 2.10.1 | Sequence deduplication |
+| HMMER | 3.4 | Profile HMM searches |
+| NCBI E-Direct | 24.0 | Proteome download from NCBI |
+| Python | 3.12 | Sequence extraction helper |
+| BioPython | 1.86 | FASTA parsing |
+
+All versions are pinned in `env/environment.lock.linux-64.yml` and available via Conda.
+
+### R packages
+
+| Package | Source | Purpose |
+|---|---|---|
+| tidyverse | CRAN | Data wrangling and plotting |
+| ggplot2 | CRAN | Graphics |
+| gridExtra | CRAN | Multi-panel figures |
+| svglite | CRAN | SVG export |
+| here | CRAN | Project-relative paths |
+| ape | CRAN | Phylogenetic data structures |
+| phangorn | CRAN | Phylogenetic analysis |
+| ggtree | Bioconductor | Phylogenetic tree visualization |
+| treeio | Bioconductor | Tree I/O (IQ-TREE format support) |
+| rmarkdown | CRAN | Reproducible report generation |
+
+---
+
+## Reproducibility
+
+- **Locked environment:** `env/environment.lock.linux-64.yml` pins the exact build string of every dependency used in the published analysis (Linux x86-64).
+- **Docker image:** `davidalbertoge/hormone-analysis:latest` provides a pre-configured container with all command-line tools.
+- **Checkpointed pipeline:** `phylo_pipeline.sh` skips completed steps on re-run, allowing safe interruption and resumption.
+- **Zenodo archive:** A snapshot of this repository including all analysis outputs (alignments, tree files, figures) is permanently archived at [https://doi.org/10.5281/zenodo.XXXXXXX](https://doi.org/10.5281/zenodo.XXXXXXX).
+- **Database versions:** Proteomes were downloaded from UniProt in [month year] and from NCBI RefSeq in [month year]. The exact download manifest is available in `manifests/proteomes.tsv` in the Zenodo archive.
 
 ---
 
 ## Citation
 
-If you use this workflow in your research, please cite:
+If you use this pipeline, please cite both the article and the software:
 
-### Primary Citation
+**Article:**
+> García-Estrada, D.A., et al. (2026). When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings. *ASM Microbiology Society*. (Manuscript submitted)
 
-**Manuscript:**
-```
-García-Estrada, D.A., et al. (2026). When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings...
-```
+**Software:**
+> García-Estrada, D.A. (2026). *Phytohormones-Fungi: a reproducible phylogenomic pipeline* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.XXXXXXX
 
 **BibTeX:**
 ```bibtex
-@article{garcia2026,
-  title={When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings},
-  author={García-Estrada, David Alberto and ...},
-  journal={ASM Microbiology Society},
-  year={2026},
-  note={Manuscript submitted}
+@article{garcia2026fungi,
+  title   = {When Fungi Speak the Language of Plants: Shared Phytohormones
+             with Divergent Meanings},
+  author  = {García-Estrada, David Alberto and others},
+  journal = {ASM Microbiology Society},
+  year    = {2026},
+  note    = {Manuscript submitted}
+}
+
+@software{garcia2026pipeline,
+  author    = {García-Estrada, David Alberto},
+  title     = {Phytohormones-Fungi: a reproducible phylogenomic pipeline},
+  year      = {2026},
+  publisher = {Zenodo},
+  version   = {v1.0.0},
+  doi       = {10.5281/zenodo.XXXXXXX},
+  url       = {https://github.com/DavidAlberto/Phytohormones-Fungi}
 }
 ```
 
@@ -921,80 +491,17 @@ García-Estrada, D.A., et al. (2026). When Fungi Speak the Language of Plants: S
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## Acknowledgments
-
-This work was supported by:
-
-- **Funding**:
-- **Databases**: UniProt, NCBI, JGI MycoCosm teams
-- **Open-Source Community**: Developers of all bioinformatics tools used
-
-We thank:
-- The Bioconductor and CRAN communities for R package development
-- All contributors who provided feedback and suggestions
-
-Special acknowledgments:
-- Reviewers for their constructive feedback
-- The open science community for data sharing
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
 ## Contact
 
-**David Alberto García Estrada**  
-Researcher  
-Center for Research in Advanced Materials (CIMAV)  
-Chihuahua, México
+**David Alberto García Estrada**
+Researcher — Center for Research in Advanced Materials (CIMAV), Chihuahua, México
 
-📧 **Email**: david.garcia@cimav.edu.mx  
-🔬 **ORCID**: [0009-0007-1169-5329](https://orcid.org/0009-0007-1169-5329)
-💼 **ResearchGate**: [David-Garcia-Estrada](https://www.researchgate.net/profile/David-Garcia-Estrada)
+- Email: [david.garcia@cimav.edu.mx](mailto:david.garcia@cimav.edu.mx)
+- ORCID: [0009-0007-1169-5329](https://orcid.org/0009-0007-1169-5329)
+- ResearchGate: [David-Garcia-Estrada](https://www.researchgate.net/profile/David-Garcia-Estrada)
 
-**For technical questions:**
-- Open an issue on [GitHub Issues](https://github.com/DavidAlberto/Phytohormones-Fungi/issues)
-- Check existing issues before creating new ones
-
-**For collaboration inquiries:**
-- Contact via email with subject: "Collaboration - Phytohormone Phylogenomics"
-
-**Repository:**
-- 🔗 GitHub: https://github.com/DavidAlberto/Phytohormones-Fungi
-- 📦 Docker Hub: https://hub.docker.com/repository/docker/davidalbertoge/hormone-analysis/general
-
----
-
-## FAQ
-
-**Q: Can I use this pipeline for other organisms besides fungi?**  
-A: Yes! The pipeline is designed to be taxonomically agnostic. Just replace the fungal protein database with your organisms of interest and adjust metadata accordingly.
-
-**Q: How long does the pipeline take to run?**  
-A: For a typical gene family with 100-200 sequences: BLAST (5-30 min), alignment (30 min - 4 hours), IQ-TREE (1-12 hours depending on model complexity). Total: 2-16 hours.
-
-**Q: Do I need a GPU for this pipeline?**  
-A: Not for the phylogenetic analysis. GPU is only recommended for AlphaFold structural modeling, which is optional.
-
-**Q: Can I run this on Windows?**  
-A: Yes, using Windows Subsystem for Linux (WSL2) or Docker. We recommend Docker for Windows users.
-
-**Q: What if my gene family has >1000 sequences?**  
-A: Consider using approximate methods (FastTree instead of IQ-TREE) or representative sampling. IQ-TREE can handle large datasets but may require substantial time.
-
-**Q: Is there a maximum number of sequences I can analyze?**  
-A: Practical limits depend on available RAM and time. We've successfully analyzed datasets with 200+ sequences. For >500 sequences, consider filtering or sampling strategies.
-
----
-
-**Last Updated**: February 2026  
-**Maintainer**: David Alberto García Estrada  
-**Status**: Active Development
-
----
-
-<p align="center">
-  ⭐ Star this repository if you find it useful! ⭐
-</p>
+For technical questions, please [open an issue](https://github.com/DavidAlberto/Phytohormones-Fungi/issues) rather than emailing directly — this keeps solutions visible to other users.

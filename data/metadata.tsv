@@ -1,0 +1,233 @@
+Organism	TaxIDs	Considered	Kingdom	Phylum	Early	Interaction	OrganismInteracts	TypeInteraction
+Lumbricus terrestris	6398	Other eukaryote	Animalia	Annelida	Doesn’t apply	No	None	None
+Drosophila melanogaster	7227	Other eukaryote	Animalia	Arthropoda	Doesn’t apply	No	None	None
+Ambystoma mexicanum	8296	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Ciona intestinalis	7719	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Danio rerio	7955	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Halocynthia roretzi	7729	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Homo sapiens	9606	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Mus musculus	10090	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Oikopleura dioica	34765	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Petromyzon marinus	7757	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Phainopepla nitens	161653	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Xenopus laevis	8355	Other eukaryote	Animalia	Chordata	Doesn’t apply	No	None	None
+Hydra vulgaris	6087	Other eukaryote	Animalia	Cnidaria	Doesn’t apply	Yes	Animal	Predation
+Porites lutea	51062	Other eukaryote	Animalia	Cnidaria	Doesn’t apply	Yes	Algae	Mutualism
+Ancylostoma caninum	29170	Other eukaryote	Animalia	Nematoda	Doesn’t apply	Yes	Animal	Pathogen
+Caenorhabditis elegans	6239	Other eukaryote	Animalia	Nematoda	Doesn’t apply	Yes	Bacteria	Predation
+Geodia barretti	519541	Other eukaryote	Animalia	Porifera	Doesn’t apply	No	None	None
+Halobacterium salinarum	2242	Prokaryote	Archaea	Halobacteriota	Doesn’t apply	No	None	None
+Methanobrevibacter smithii	2173	Prokaryote	Archaea	Methanobacteriota	Doesn’t apply	Yes	Human	Commensalism
+Sulfolobus acidocaldarius	2285	Prokaryote	Archaea	Thermoproteota	Doesn’t apply	No	None	None
+Acidimicrobiia bacterium	2080302	Ocean bacteria	Bacteria	Actinomycetota	Doesn’t apply	No	None	None
+Mycobacterium sp.	1785	Prokaryote	Bacteria	Actinomycetota	Doesn’t apply	Yes	Animal, Human	Pathogen
+Rhodococcoides fascians	1828	Prokaryote	Bacteria	Actinomycetota	Doesn’t apply	Yes	Plant	Pathogen
+Aquifex aeolicus	63363	Aquatic bacteria	Bacteria	Aquificota	Doesn’t apply	No	None	None
+Bacillus subtilis	1423	Prokaryote	Bacteria	Bacillota	Doesn’t apply	Yes	Animal	Commensalism
+Clostridiales bacterium	1898207	Prokaryote	Bacteria	Bacillota	Doesn’t apply	No	None	None
+Enterococcus faecium	1352	Prokaryote	Bacteria	Bacillota	Doesn’t apply	Yes	Human	Pathogen
+Enterococcus florum	2480627	Prokaryote	Bacteria	Bacillota	Doesn’t apply	No	None	None
+Lactococcus lactis	1358	Prokaryote	Bacteria	Bacillota	Doesn’t apply	No	None	None
+Listeria monocytogenes	1639	Prokaryote	Bacteria	Bacillota	Doesn’t apply	Yes	Animal, Human	Pathogen
+Paenibacillus polymyxa	1406	Prokaryote	Bacteria	Bacillota	Doesn’t apply	No	None	None
+Staphylococcus aureus	1280	Prokaryote	Bacteria	Bacillota	Doesn’t apply	Yes	Human	Pathogen
+Anaerolineae bacterium	2052143	Prokaryote	Bacteria	Chloroflexota	Doesn’t apply	No	None	None
+Ktedonospora formicarum	2778364	Prokaryote	Bacteria	Chloroflexota	Doesn’t apply	Yes	Insect	Commensalism
+Gloeobacter violaceus	33072	Prokaryote	Bacteria	Cyanobacteriota	Doesn’t apply	No	None	None
+Nostoc punctiforme	272131	Prokaryote	Bacteria	Cyanobacteriota	Doesn’t apply	No	None	None
+Nostoc sp.	1180	Prokaryote	Bacteria	Cyanobacteriota	Doesn’t apply	No	None	None
+Oscillatoria sp.	1159	Aquatic bacteria	Bacteria	Cyanobacteriota	Doesn’t apply	No	None	None
+Planktothrix agardhii	1160	Aquatic bacteria	Bacteria	Cyanobacteriota	Doesn’t apply	No	None	None
+Synechocystis sp.	1143	Prokaryote	Bacteria	Cyanobacteriota	Doesn’t apply	No	None	None
+Trichormus variabilis	264691	Prokaryote	Bacteria	Cyanobacteriota	Doesn’t apply	No	None	None
+Deinococcus geothermalis	68909	Prokaryote	Bacteria	Deinococcota	Doesn’t apply	No	None	None
+Deinococcus radiodurans	1299	Prokaryote	Bacteria	Deinococcota	Doesn’t apply	No	None	None
+Gemmataceae bacterium	2052164	Prokaryote	Bacteria	Planctomycetota	Doesn’t apply	No	None	None
+Isosphaera pallida	128	Aquatic bacteria	Bacteria	Planctomycetota	Doesn’t apply	No	None	None
+Agrobacterium radiobacter	362	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Plant	Pathogen
+Alphaproteobacteria bacterium	1913988	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	No	None	None
+Escherichia coli	562	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Human	Pathogen
+Helicobacter apodemus	135569	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Human	Pathogen
+Helicobacter pylori	210	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Human	Pathogen
+Hypericibacter terrae	2602015	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	No	None	None
+Pantoea agglomerans	549	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Human	Pathogen
+Pseudomonas aeruginosa	287	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Human	Pathogen
+Pseudomonas fluorescens	294	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Plant	Mutualism
+Pseudomonas putida	303	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	No	None	None
+Pseudomonas savastanoi	29438	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Plant	Mutualism
+Ralstonia nicotianae	3037696	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Plant	Pathogen
+Ralstonia solanacearum	305	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Plant	Pathogen
+Rickettsia conorii	781	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Human	Pathogen
+Rickettsia prowazekii	782	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Human	Pathogen
+Xanthomonas campestris	339	Prokaryote	Bacteria	Pseudomonadota	Doesn’t apply	Yes	Plant	Pathogen
+Thermotoga maritima	2336	Aquatic bacteria	Bacteria	Thermotogota	Doesn’t apply	No	None	None
+Plasmodium falciparum	5833	Other eukaryote	Chromista	Apicomplexa	Doesn’t apply	Yes	Human	Parasitism
+Toxoplasma gondii	5811	Other eukaryote	Chromista	Apicomplexa	Doesn’t apply	Yes	Animal	Parasitism
+Achlya hypogyna	1202772	Sweet water mold	Chromista	Oomycota	Doesn’t apply	No	None	None
+Phytophthora ramorum	164328	Other eukaryote	Chromista	Oomycota	Doesn’t apply	Yes	Plant	Pathogen
+Saprolegnia parasitica	101203	Sweet water mold	Chromista	Oomycota	Doesn’t apply	Yes	Animal	Pathogen
+Thraustotheca clavata	74557	Sweet water mold	Chromista	Oomycota	Doesn’t apply	No	None	None
+Amoeboaphelidium occidentale	1498855	Fresh water fungi	Fungi	Aphelidiomycota	Yes	Yes	Algae	Parasitism
+Amoeboaphelidium protococcarum	1243177	Fresh water fungi	Fungi	Aphelidiomycota	Yes	Yes	Algae	Parasitism
+Alternaria alternata	5599	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Antarctomyces pellizariae	1955577	Soil fungus	Fungi	Ascomycota	No	No	None	None
+Aspergillus fumigatus	746128	Soil fungus	Fungi	Ascomycota	No	Yes	Human, Animal	Pathogen
+Aspergillus nidulans	162425	Soil fungus	Fungi	Ascomycota	No	No	None	None
+Aspergillus niger	5061	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Aspergillus oryzae	5062	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Mutualism
+Beauveria asiatica	1069075	Soil fungus	Fungi	Ascomycota	No	Yes	Insect	Pathogen
+Beauveria bassiana	176275	Soil fungus	Fungi	Ascomycota	No	Yes	Insect	Pathogen
+Botrytis cinerea	40559	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Botrytis fragariae	1964551	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Candida albicans	5476	Opportunistic	Fungi	Ascomycota	No	Yes	Human	Pathogen
+Candida viswanathii	5486	Opportunistic	Fungi	Ascomycota	No	Yes	Human	Pathogen
+Claviceps purpurea	5111	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Human	Pathogen
+Clonostachys rosea	29856	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Colletotrichum gloeosporioides	474922	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Colletotrichum graminicola	31870	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Cordyceps militaris	73501	Soil fungus	Fungi	Ascomycota	No	Yes	Insect	Pathogen
+Durotheca rogersii	419775	Soil fungus	Fungi	Ascomycota	No	No	None	None
+Escovopsis weberi	150374	Obligate parasite	Fungi	Ascomycota	No	Yes	Fungus	Pathogen
+Fusarium graminearum	5518	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Fusarium oxysporum	5507	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Fusarium pseudograminearum	101028	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Histoplasma capsulatum	5037	Soil fungus	Fungi	Ascomycota	No	Yes	Animal	Pathogen
+Komagataella pastoris	4922	Other	Fungi	Ascomycota	No	No	None	None
+Metarhizium brunneum	500148	Other	Fungi	Ascomycota	No	Yes	Insect	Pathogen
+Metarhizium robertsii	568076	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Insect	Mutualism, Pathogen
+Microsporum canis	63405	Other	Fungi	Ascomycota	No	Yes	Animal	Pathogen
+Morchella sextelata	1174677	Mycorhiza	Fungi	Ascomycota	No	Yes	Plant	Mutualism
+Neurospora crassa	5141	Soil fungus	Fungi	Ascomycota	No	No	None	None
+Niesslia exilis	267680	Other	Fungi	Ascomycota	No	No	None	None
+Oidiodendron maius	78148	Mycorhiza	Fungi	Ascomycota	No	Yes	Plant	Mutualism
+Ophiocordyceps sinensis	72228	Other	Fungi	Ascomycota	No	Yes	Insect	Pathogen
+Penicillium chrysogenum	5076	Other	Fungi	Ascomycota	No	No	None	None
+Pestalotiopsis fici	393283	Other	Fungi	Ascomycota	No	No	Plant	Endophyte
+Plenodomus lingam	5022	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Podospora anserina	2587412	Other	Fungi	Ascomycota	No	No	None	None
+Podospora fimiseda	252190	Other	Fungi	Ascomycota	No	No	None	None
+Pyricularia grisea	148305	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Pyricularia oryzae	318829	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Rhizina undulata	44645	Soil fungus	Fungi	Ascomycota	No	No	Plant	Parasitism
+Saccharomyces cerevisiae	4932	Other	Fungi	Ascomycota	No	No	None	None
+Saitoella coloradoensis	1099800	Other	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Sarocladium strictum	5046	Soil fungus	Fungi	Ascomycota	No	Yes	Fungus	Parasitism
+Schizosaccharomyces pombe	4896	Other	Fungi	Ascomycota	No	No	None	None
+Sclerotinia sclerotiorum	5180	Soil fungus	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Stachybotrys chartarum	74722	Black mold	Fungi	Ascomycota	No	No	None	None
+Taphrina deformans	5011	Other	Fungi	Ascomycota	No	Yes	Plant	Pathogen
+Tolypocladium paradoxum	94208	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma arundinaceum	490622	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma asperellum	101201	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma atroviride	63577	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma guizhouense	1491466	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma harzianum	5544	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma longibrachiatum	5548	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma parareesei	858221	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Trichoderma reesei	51453	Soil fungus	Fungi	Ascomycota	No	No	None	None
+Trichoderma virens	29875	Soil fungus	Fungi	Ascomycota	No	Yes	Plant, Fungus	Mutualism, Parasitism
+Valetoniellopsis laxa	152775	Soil fungus	Fungi	Ascomycota	No	No	None	None
+Xanthoria parietina	107463	Lichen	Fungi	Ascomycota	No	Yes	Algae	Mutualism
+Xylaria polymorpha	77046	Soil fungus	Fungi	Ascomycota	No	No	None	None
+Agaricus bisporus	5341	Soil fungus	Fungi	Basidiomycota	No	No	None	None
+Amanita muscaria	41956	Mycorhiza	Fungi	Basidiomycota	No	Yes	Plant	Mutualism
+Cryptococcus neoformans	5207	Other	Fungi	Basidiomycota	No	Yes	Human	Pathogen
+Hebeloma cylindrosporum	76867	Mycorhiza	Fungi	Basidiomycota	No	Yes	Plant	Mutualism
+Laccaria amethystina	89243	Mycorhiza	Fungi	Basidiomycota	No	Yes	Plant	Mutualism
+Laccaria bicolor	29883	Mycorhiza	Fungi	Basidiomycota	No	Yes	Plant	Mutualism
+Moniliophthora perniciosa	153609	Soil fungus	Fungi	Basidiomycota	No	Yes	Plant	Pathogen
+Pleurotus ostreatus	5322	Soil fungus	Fungi	Basidiomycota	No	No	Nematode	Predation
+Puccinia graminis	5297	Soil fungus	Fungi	Basidiomycota	No	Yes	Plant	Pathogen
+Rhizoctonia solani	456999	Soil fungus	Fungi	Basidiomycota	No	Yes	Plant	Pathogen
+Sanghuangporus baumii	108892	Soil fungus	Fungi	Basidiomycota	No	Yes	Plant	Parasitism
+Serendipita indica	65672	Soil fungus	Fungi	Basidiomycota	No	Yes	Plant	Mutualism
+Tricholoma vaccinum	56470	Mycorhiza	Fungi	Basidiomycota	No	Yes	Plant	Mutualism
+Tulasnella irregularis	80608	Mycorhiza	Fungi	Basidiomycota	No	Yes	Plant	Mutualism
+Ustilago maydis	5270	Soil fungus	Fungi	Basidiomycota	No	Yes	Plant	Pathogen
+Allomyces macrogynus	28583	Aquatic chytrid	Fungi	Blastocladiomycota	Yes	No	None	None
+Catenaria anguillulae	109876	Other	Fungi	Blastocladiomycota	Yes	Yes	Nematode	Pathogen
+Paraphysoderma sedebokerense	1500003	Chytrid like	Fungi	Blastocladiomycota	Yes	Yes	Algae	Parasitism
+Anaeromyces robustus	1754192	Anaerobic fungus	Fungi	Chytridiomycota	Yes	Yes	Animal	Parasitism
+Batrachochytrium dendrobatidis	109871	Aquatic chytrid	Fungi	Chytridiomycota	Yes	Yes	Animal	Pathogen
+Caecomyces churrovis	2019372	Anaerobic fungus	Fungi	Chytridiomycota	Yes	Yes	Animal	Mutualism
+Chytriomyces confervae	246404	Aquatic chytrid	Fungi	Chytridiomycota	Yes	Yes	Algae	Parasitism
+Cladochytrium replicatum	109936	Aquatic chytrid	Fungi	Chytridiomycota	Yes	Yes	Plant	Parasitism
+Dinochytrium kinnereticum	1774096	Aquatic chytrid	Fungi	Chytridiomycota	Yes	Yes	Algae	Parasitism
+Gonapodya prolifera	1123529	Aquatic chytrid	Fungi	Chytridiomycota	Yes	No	None	None
+Hyaloraphidium curvatum	82268	Chytrid like	Fungi	Chytridiomycota	Yes	No	None	None
+Irineochytrium annulatum	109884	Aquatic chytrid	Fungi	Chytridiomycota	Yes	No	None	None
+Neocallimastix cameroonii	1764037	Anaerobic fungus	Fungi	Chytridiomycota	Yes	Yes	Animal	Mutualism
+Neocallimastix lanati	2767002	Anaerobic fungus	Fungi	Chytridiomycota	Yes	Yes	Animal	Mutualism
+Phlyctochytrium bullatum	1352834	Aquatic chytrid	Fungi	Chytridiomycota	Yes	No	None	None
+Spizellomyces punctatus	109760	Early Terrestrial	Fungi	Chytridiomycota	Yes	No	None	None
+Piromyces finnis	1754191	Anaerobic fungus	Fungi	Chytridiomycota	Yes	Yes	Animal	Mutualism
+Rozella allomycis	281847	Aquatic chytrid	Fungi	Cryptomycota	Yes	Yes	Fungus, Algae	Parasitism
+Juncorrhiza aschersoniana	2729606	Early Terrestrial	Fungi	Entorrhizomycota	Yes	Yes	Plant	Pathogen
+Juncorrhiza casparyana	2729607	Early Terrestrial	Fungi	Entorrhizomycota	Yes	Yes	Plant	Pathogen
+Entorrhiza parvula	1547869	Early Terrestrial	Fungi	Entorrhizomycota	Yes	Yes	Plant	Pathogen
+Gigaspora margarita	4874	Mycorhiza	Fungi	Glomeromycota	Yes	Yes	Plant, Bacteria	Mutualism
+Gigaspora rosea	44941	Mycorhiza	Fungi	Glomeromycota	Yes	Yes	Plant	Mutualism
+Paraglomus occultum	144539	Mycorhiza	Fungi	Glomeromycota	Yes	Yes	Plant	Mutualism
+Rhizophagus irregularis	588596	Mycorhiza	Fungi	Glomeromycota	Yes	Yes	Plant	Mutualism
+Mitosporidium daphniae	1485682	Other	Fungi	Microsporidia	Yes	Yes	Animal, Human	Parasitism
+Nematocida parisii	586133	Obligate parasite	Fungi	Microsporidia	Yes	Yes	Animal	Parasitism
+Ordospora pajunii	3039483	Other	Fungi	Microsporidia	Yes	Yes	Animal	Parasitism, Mutualism
+Dissophora ornata	979620	Soil fungus	Fungi	Mucoromycota	Yes	No	None	None
+Lobosporangium transversale	64571	Soil fungus	Fungi	Mucoromycota	Yes	No	None	None
+Modicella reniformis	1440133	Soil fungus	Fungi	Mucoromycota	Yes	No	None	None
+Calcarisporiella thermophila	911321	Soil fungus	Fungi	Mucoromycota	Yes	No	None	None
+Choanephora cucurbitarum	101091	Soil fungus	Fungi	Mucoromycota	Yes	Yes	Plant	Pathogen
+Endogone sp.	2012134	Mycorhiza	Fungi	Mucoromycota	Yes	Yes	Plant	Mutualism
+Mortierella alpina	64518	Soil fungus	Fungi	Mucoromycota	Yes	No	None	None
+Mortierella antarctica	979670	Soil fungus	Fungi	Mucoromycota	Yes	No	None	None
+Mortierella elongata	310910	Soil fungus	Fungi	Mucoromycota	Yes	Yes	Plant	Mutualism
+Mortierella hyalina	64524	Soil fungus	Fungi	Mucoromycota	Yes	Yes	Plant, Bacteria	Mutualism
+Mucor circinelloides	36080	Soil fungus	Fungi	Mucoromycota	Yes	Yes	Human, Animal	Pathogen
+Rhizopus microsporus	58291	Soil fungus	Fungi	Mucoromycota	Yes	Yes	Plant, Bacteria	Pathogen, Mutualism
+Rhizopus stolonifer	4846	Black mold	Fungi	Mucoromycota	Yes	Yes	Plant	Pathogen
+Umbelopsis ramanniana	41833	Soil fungus	Fungi	Mucoromycota	Yes	No	None	None
+Olpidium bornovanus	278681	Obligate parasite	Fungi	Olpidiomycota	Yes	Yes	Plant	Parasitism, Pathogen
+Olpidium brassicae	70189	Obligate parasite	Fungi	Olpidiomycota	Yes	Yes	Plant	Parasitism
+Amoeboradix gromovi	2109901	Chytrid like	Fungi	Sanchytriomycota	Yes	Yes	Algae	Parasitism
+Sanchytrium tribonematis	2020955	Chytrid like	Fungi	Sanchytriomycota	Yes	Yes	Algae	Parasitism
+Basidiobolus meristosporus	423460	Other	Fungi	Zoopagomycota	Yes	Yes	Human	Pathogen
+Basidiobolus ranarum	34480	Other	Fungi	Zoopagomycota	Yes	Yes	Animal	Pathogen
+Coemansia erecta	147472	Soil fungus	Fungi	Zoopagomycota	Yes	No	None	None
+Coemansia mojavensis	4864	Soil fungus	Fungi	Zoopagomycota	Yes	No	None	None
+Coemansia reversa	61392	Soil fungus	Fungi	Zoopagomycota	Yes	No	None	None
+Conidiobolus coronatus	34488	Early Terrestrial	Fungi	Zoopagomycota	Yes	Yes	Animal, Human	Pathogen
+Dimargaris cristalligena	215637	Soil fungus	Fungi	Zoopagomycota	Yes	Yes	Fungus	Parasitism
+Entomophthora muscae	34485	Early Terrestrial	Fungi	Zoopagomycota	Yes	Yes	Insect	Pathogen
+Linderina pennispora	61395	Soil fungus	Fungi	Zoopagomycota	Yes	No	None	None
+Neoconidiobolus thromboides	76012	Early Terrestrial	Fungi	Zoopagomycota	Yes	Yes	Insect	Pathogen
+Pinnaticoemansia coronantispora	417175	Soil fungus	Fungi	Zoopagomycota	Yes	No	None	None
+Ramicandelaber brevisporus	304332	Soil fungus	Fungi	Zoopagomycota	Yes	No	None	None
+Smittium culicis	133412	Other	Fungi	Zoopagomycota	Yes	Yes	Insect	Commensalism
+Chlamydomonas reinhardtii	3055	Green algae	Plantae	Chlorophyta	Doesn’t apply	No	None	None
+Porphyra umbilicalis	2786	Red algae	Plantae	Rhodophyta	Doesn’t apply	No	None	None
+Selaginella moellendorffii	88036	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Marchantia polymorpha	3197	Livewort	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Anthoceros punctatus	3234	Hornworts	Plantae	Streptophyta	Doesn’t apply	Yes	Bacteria	Mutualism
+Physcomitrium patens	3218	Moss	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Sphagnum fallax	53036	Moss	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Chara braunii	69332	Charophytic algae	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Amborella trichopoda	13333	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Arabidopsis thaliana	3702	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Brassica rapa	3711	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Capsella rubella	81985	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Cryptomeria japonica	3369	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Cucumis sativus	3659	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Cuscuta campestris	132261	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	Yes	Plant	Pathogen
+Eutrema salsugineum	72664	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Hirschfeldia incana	71354	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Klebsormidium nitens	105231	Green algae	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Medicago truncatula	3880	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	Yes	Bacteria	Mutualism
+Oryza sativa	4530	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Phaseolus vulgaris	3885	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	Yes	Plant	Mutualism
+Solanum lycopersicum	4081	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Triticum aestivum	4565	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Zea mays	4577	Other eukaryote	Plantae	Streptophyta	Doesn’t apply	No	None	None
+Acanthamoeba castellanii	5755	Amoeba	Protozoa	Amoebozoa	Doesn’t apply	Yes	Human	Parasitism
+Dictyostelium discoideum	5786	Other eukaryote	Protozoa	Amoebozoa	Doesn’t apply	No	None	None
+Dictyostelium purpureum	44689	Other eukaryote	Protozoa	Amoebozoa	Doesn’t apply	No	None	None
+Entamoeba dispar	46681	Other eukaryote	Protozoa	Amoebozoa	Doesn’t apply	Yes	Bacteria	Predation
