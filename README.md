@@ -1,4 +1,4 @@
-# Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements?
+# Phytohormones-Fungi: a reproducible phylogenomic pipeline for cross-kingdom homolog detection and analysis
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![DOI](https://zenodo.org/badge/1057660765.svg)](https://doi.org/10.5281/zenodo.20115766)
