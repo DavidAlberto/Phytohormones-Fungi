@@ -6,96 +6,96 @@ message: >-
 # =============================================================================
 # SOFTWARE CITATION — pipeline developed by David Alberto García-Estrada
 # =============================================================================
-title: >-
-  Phytohormones-Fungi: a reproducible phylogenomic pipeline for
-  cross-kingdom homolog detection and analysis
-authors:
-  - family-names: "García-Estrada"
-    given-names: "David Alberto"
-    orcid: "https://orcid.org/0009-0007-1169-5329"
-    affiliation: >-
-      Departamento de Medio Ambiente y Energía, Centro de Investigación en
-      Materiales Avanzados (CIMAV), Chihuahua, Chihuahua, México
-version: "1.1.0"
-date-released: "2026-05-15"
-license: MIT
-repository-code: "https://github.com/DavidAlberto/Phytohormones-Fungi"
-doi: "10.5281/zenodo.20115766"
-url: "https://github.com/DavidAlberto/Phytohormones-Fungi"
-abstract: >-
-  A reproducible bioinformatics pipeline for identifying, curating, and
-  phylogenetically analyzing homologs of phytohormone-associated genes in
-  filamentous fungi and across kingdoms. The pipeline integrates a custom
-  taxonomically curated protein database (234 organisms spanning the fungal
-  tree of life and key outgroups), cross-kingdom BLASTp and profile HMM
-  searches with complete-domain architecture validation, phylogeny-aware
-  sequence alignment, and maximum-likelihood phylogenetic inference with
-  ultrafast bootstrap and SH-aLRT support.
-keywords:
-  - phylogenomics
-  - bioinformatics
-  - fungi
-  - phytohormones
-  - cytokinin
-  - Trichoderma atroviride
-  - homolog detection
-  - blast
-  - hmmer
-  - iqtree
-  - reproducible-research
+preferred-citation:
+  title: >-
+    Phytohormones-Fungi: a reproducible phylogenomic pipeline for
+    cross-kingdom homolog detection and analysis
+  authors:
+    - family-names: "García-Estrada"
+      given-names: "David Alberto"
+      orcid: "https://orcid.org/0009-0007-1169-5329"
+      affiliation: >-
+        Departamento de Medio Ambiente y Energía, Centro de Investigación en
+        Materiales Avanzados (CIMAV), Chihuahua, Chihuahua, México
+  version: "1.1.0"
+  date-released: "2026-05-15"
+  license: MIT
+  repository-code: "https://github.com/DavidAlberto/Phytohormones-Fungi"
+  doi: "10.5281/zenodo.20115766"
+  url: "https://github.com/DavidAlberto/Phytohormones-Fungi"
+  abstract: >-
+    A reproducible bioinformatics pipeline for identifying, curating, and
+    phylogenetically analyzing homologs of phytohormone-associated genes in
+    filamentous fungi and across kingdoms. The pipeline integrates a custom
+    taxonomically curated protein database (234 organisms spanning the fungal
+    tree of life and key outgroups), cross-kingdom BLASTp and profile HMM
+    searches with complete-domain architecture validation, phylogeny-aware
+    sequence alignment, and maximum-likelihood phylogenetic inference with
+    ultrafast bootstrap and SH-aLRT support.
+  keywords:
+    - phylogenomics
+    - bioinformatics
+    - fungi
+    - phytohormones
+    - cytokinin
+    - Trichoderma atroviride
+    - homolog detection
+    - blast
+    - hmmer
+    - iqtree
+    - reproducible-research
 
 # =============================================================================
 # ARTICLE CITATION — please also cite the associated manuscript
 # =============================================================================
-preferred-citation:
-  type: article
-  title: >-
-    Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal
-    Self-Controlling Elements?
-  authors:
-    - family-names: "García-Estrada"
-      given-names: "David A."
-      orcid: "https://orcid.org/0009-0007-1169-5329"
-      affiliation: >-
-        Unidad de Genómica Avanzada, Cinvestav, 36824 Irapuato,
-        Guanajuato, México
-    - family-names: "Ruvalcaba-Villagrán"
-      given-names: "Melanie L."
-      affiliation: >-
-        Unidad de Genómica Avanzada, Cinvestav, 36824 Irapuato,
-        Guanajuato, México
-    - family-names: "Sánchez-Fonseca"
-      given-names: "Axel G."
-      affiliation: >-
-        Departamento de Biología, División de Ciencias Naturales y Exactas,
-        Universidad de Guanajuato, 36050, Guanajuato, México
-    - family-names: "Duran-Palmerin"
-      given-names: "Jonathan"
-      affiliation: >-
-        Departamento de Biología, División de Ciencias Naturales y Exactas,
-        Universidad de Guanajuato, 36050, Guanajuato, México
-    - family-names: "Ornelas-Paz"
-      given-names: "Juan"
-      affiliation: >-
-        Unidad de Genómica Avanzada, Cinvestav, 36824 Irapuato,
-        Guanajuato, México
-    - family-names: "Vargas-Gasca"
-      given-names: "Francisco"
-      affiliation: >-
-        Departamento de Biología, División de Ciencias Naturales y Exactas,
-        Universidad de Guanajuato, 36050, Guanajuato, México
-    - family-names: "Olmedo-Monfil"
-      given-names: "Vianey"
-      affiliation: >-
-        Departamento de Biología, División de Ciencias Naturales y Exactas,
-        Universidad de Guanajuato, Noria Alta s/n CP 36050,
-        Guanajuato, México
-    - family-names: "Herrera-Estrella"
-      given-names: "Alfredo"
-      affiliation: >-
-        Unidad de Genómica Avanzada, Cinvestav, Km. 9.6 Libramiento Norte,
-        Carretera Irapuato-León, C.P. 36824, Irapuato, Guanajuato, México
-  journal: "ASM Microbiology Society"
-  year: 2026
-  notes: "Manuscript submitted"
-  # doi: ""
+type: article
+title: >-
+  Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal
+  Self-Controlling Elements?
+authors:
+  - family-names: "García-Estrada"
+    given-names: "David A."
+    orcid: "https://orcid.org/0009-0007-1169-5329"
+    affiliation: >-
+      Unidad de Genómica Avanzada, Cinvestav, 36824 Irapuato,
+      Guanajuato, México
+  - family-names: "Ruvalcaba-Villagrán"
+    given-names: "Melanie L."
+    affiliation: >-
+      Unidad de Genómica Avanzada, Cinvestav, 36824 Irapuato,
+      Guanajuato, México
+  - family-names: "Sánchez-Fonseca"
+    given-names: "Axel G."
+    affiliation: >-
+      Departamento de Biología, División de Ciencias Naturales y Exactas,
+      Universidad de Guanajuato, 36050, Guanajuato, México
+  - family-names: "Duran-Palmerin"
+    given-names: "Jonathan"
+    affiliation: >-
+      Departamento de Biología, División de Ciencias Naturales y Exactas,
+      Universidad de Guanajuato, 36050, Guanajuato, México
+  - family-names: "Ornelas-Paz"
+    given-names: "Juan"
+    affiliation: >-
+      Unidad de Genómica Avanzada, Cinvestav, 36824 Irapuato,
+      Guanajuato, México
+  - family-names: "Vargas-Gasca"
+    given-names: "Francisco"
+    affiliation: >-
+      Departamento de Biología, División de Ciencias Naturales y Exactas,
+      Universidad de Guanajuato, 36050, Guanajuato, México
+  - family-names: "Olmedo-Monfil"
+    given-names: "Vianey"
+    affiliation: >-
+      Departamento de Biología, División de Ciencias Naturales y Exactas,
+      Universidad de Guanajuato, Noria Alta s/n CP 36050,
+      Guanajuato, México
+  - family-names: "Herrera-Estrella"
+    given-names: "Alfredo"
+    affiliation: >-
+      Unidad de Genómica Avanzada, Cinvestav, Km. 9.6 Libramiento Norte,
+      Carretera Irapuato-León, C.P. 36824, Irapuato, Guanajuato, México
+journal: "ASM Microbiology Society"
+year: 2026
+notes: "Manuscript submitted"
+# doi: ""
