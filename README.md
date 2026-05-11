@@ -8,7 +8,7 @@
 This repository contains the complete, reproducible bioinformatics pipeline used in the study of phytohormone-associated gene homologs across the fungal tree of life. The workflow integrates a taxonomically curated custom protein database, cross-kingdom homology detection with domain architecture validation, phylogeny-aware sequence alignment, and maximum-likelihood phylogenetic inference.
 
 > **Associated publication:**
-> García-Estrada, D.A., et al. (2026). *When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings*. ASM Microbiology Society. (Manuscript submitted)
+> García-Estrada, D.A., et al. (2026). *Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements?*. ASM Microbiology Society. (Manuscript submitted)
 
 ---
 
@@ -460,26 +460,27 @@ All versions are pinned in `env/environment.lock.linux-64.yml` and available via
 If you use this pipeline, please cite both the article and the software:
 
 **Article:**
-> García-Estrada, D.A., et al. (2026). When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings. *ASM Microbiology Society*. (Manuscript submitted)
+> García-Estrada, D.A., et al. (2026). Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements? *ASM Microbiology Society*. (Manuscript submitted)
 
 **Software:**
-> García-Estrada, D.A. (2026). *Phytohormones-Fungi: a reproducible phylogenomic pipeline* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.20115766
+> García-Estrada, D.A. (2026). *Phytohormones-Fungi: a reproducible phylogenomic pipeline for cross-kingdom homolog detection and analysis* (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.20115766
 
 **BibTeX:**
 ```bibtex
 @software{garcia2026pipeline,
   author    = {García-Estrada, David Alberto},
-  title     = {Phytohormones-Fungi: a reproducible phylogenomic pipeline},
+  title     = {Phytohormones-Fungi: a reproducible phylogenomic pipeline
+               for cross-kingdom homolog detection and analysis},
   year      = {2026},
   publisher = {Zenodo},
-  version   = {v1.0.0},
+  version   = {v1.1.0},
   doi       = {10.5281/zenodo.20115766},
   url       = {https://github.com/DavidAlberto/Phytohormones-Fungi}
 }
 
 @article{garcia2026fungi,
-  title   = {When Fungi Speak the Language of Plants: Shared Phytohormones
-             with Divergent Meanings},
+  title   = {Phytohormones in Fungi: Inter-Kingdom Modulators or
+             Fungal Self-Controlling Elements?},
   author  = {García-Estrada, David Alberto and others},
   journal = {ASM Microbiology Society},
   year    = {2026},
