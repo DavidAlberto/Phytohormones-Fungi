@@ -1,7 +1,7 @@
 # Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements?
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![DOI](https://zenodo.org/badge/1057660765.svg)](https://doi.org/10.5281/zenodo.20115766)
+[![DOI](https://zenodo.org/badge/1057660765.svg)](https://doi.org/10.5281/zenodo.20115767)
 [![Bioinformatics](https://img.shields.io/badge/field-Bioinformatics-blue.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
 [![Phylogenetics](https://img.shields.io/badge/analysis-Phylogenomics-green.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
 
@@ -450,7 +450,7 @@ All versions are pinned in `env/environment.lock.linux-64.yml` and available via
 - **Locked environment:** `env/environment.lock.linux-64.yml` pins the exact build string of every dependency used in the published analysis (Linux x86-64).
 - **Docker image:** `davidalbertoge/hormone-analysis:latest` provides a pre-configured container with all command-line tools.
 - **Checkpointed pipeline:** `phylo_pipeline.sh` skips completed steps on re-run, allowing safe interruption and resumption.
-- **Zenodo archive:** A snapshot of this repository including all analysis outputs (alignments, tree files, figures) is permanently archived at [https://doi.org/10.5281/zenodo.XXXXXXX](https://doi.org/10.5281/zenodo.XXXXXXX).
+- **Zenodo archive:** A snapshot of this repository including all analysis outputs (alignments, tree files, figures) is permanently archived at [https://doi.org/10.5281/zenodo.20115767](https://doi.org/10.5281/zenodo.20115767).
 - **Database versions:** Proteomes were downloaded from UniProt in [october 2025] and from NCBI RefSeq in [october 2025]. The exact download manifest is available in `manifests/proteomes.tsv` in the Zenodo archive.
 
 ---
@@ -463,10 +463,20 @@ If you use this pipeline, please cite both the article and the software:
 > García-Estrada, D.A., et al. (2026). When Fungi Speak the Language of Plants: Shared Phytohormones with Divergent Meanings. *ASM Microbiology Society*. (Manuscript submitted)
 
 **Software:**
-> García-Estrada, D.A. (2026). *Phytohormones-Fungi: a reproducible phylogenomic pipeline* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.XXXXXXX
+> García-Estrada, D.A. (2026). *Phytohormones-Fungi: a reproducible phylogenomic pipeline* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.20115767
 
 **BibTeX:**
 ```bibtex
+@software{garcia2026pipeline,
+  author    = {García-Estrada, David Alberto},
+  title     = {Phytohormones-Fungi: a reproducible phylogenomic pipeline},
+  year      = {2026},
+  publisher = {Zenodo},
+  version   = {v1.0.0},
+  doi       = {10.5281/zenodo.20115767},
+  url       = {https://github.com/DavidAlberto/Phytohormones-Fungi}
+}
+
 @article{garcia2026fungi,
   title   = {When Fungi Speak the Language of Plants: Shared Phytohormones
              with Divergent Meanings},
@@ -474,16 +484,6 @@ If you use this pipeline, please cite both the article and the software:
   journal = {ASM Microbiology Society},
   year    = {2026},
   note    = {Manuscript submitted}
-}
-
-@software{garcia2026pipeline,
-  author    = {García-Estrada, David Alberto},
-  title     = {Phytohormones-Fungi: a reproducible phylogenomic pipeline},
-  year      = {2026},
-  publisher = {Zenodo},
-  version   = {v1.0.0},
-  doi       = {10.5281/zenodo.20115766},
-  url       = {https://github.com/DavidAlberto/Phytohormones-Fungi}
 }
 ```
 
