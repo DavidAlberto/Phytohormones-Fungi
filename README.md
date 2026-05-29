@@ -35,14 +35,14 @@ This repository contains the complete, reproducible bioinformatics pipeline used
 
 ## Overview
 
-The pipeline is divided into two sequential phases. **Phase 1** constructs a non-redundant protein database from 234 organisms spanning the full fungal tree of life and key outgroups (Viridiplantae, Metazoa, Bacteria, Archaea). **Phase 2** performs homology detection, curation, and phylogenetic inference using that database.
+The pipeline is divided into two sequential phases. **Phase 1** constructs a non-redundant protein database from 232 organisms spanning the full fungal tree of life and key outgroups (Viridiplantae, Metazoa, Bacteria, Archaea). **Phase 2** performs homology detection, curation, and phylogenetic inference using that database.
 
 The *Trichoderma atroviride* v3 proteome (the primary study organism, currently unpublished) was incorporated manually into the database and is not downloaded by the automated scripts.
 
 ```mermaid
 flowchart TD
     A["**Phase 1**
-    organisms.tsv 234 taxa — Fungi, Bacteria, 
+    organisms.tsv 232 taxa — Fungi, Bacteria, 
     Viridiplantae, Metazoa"] --> B["download_proteomes.sh UniProt ref → reviewed → complete → NCBI RefSeq fallback"]
     B --> C["prepare_blastdb.sh Header standardization TaxID-prefix + makeblastdb → hormoneDB"]
     M["*T. atroviride* v3 unpublished —
@@ -382,7 +382,7 @@ Representative sequences from major phylogenetic clades were modeled with **Alph
 
 ### organisms.tsv
 
-Defines the 234 organisms used to build the custom database. Covers:
+Defines the 232 organisms used to build the custom database. Covers:
 
 - **Fungi:** Ascomycota, Basidiomycota, Chytridiomycota, Mucoromycota, Zoopagomycota, Blastocladiomycota, Microsporidia, and early-diverging lineages
 - **Outgroups:** Viridiplantae (embryophytes and algae), Metazoa (vertebrates and invertebrates), Bacteria (Proteobacteria, Cyanobacteria, Firmicutes, Actinobacteria, Thermotogae), Archaea, and unicellular eukaryotes
