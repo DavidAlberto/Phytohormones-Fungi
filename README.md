@@ -85,7 +85,7 @@ flowchart TD
     phylo_pipeline.sh
     seqkit rmdup → CD-HIT 99%
     MAFFT → FastTree → PRANK
-    trimAl → IQ-TREE3 MFP+LG+C60"]
+    trimAl → IQ-TREE MFP+LG+C60"]
 
     N --> O["**Phase 2D**
     phylogenetic-tree.Rmd
