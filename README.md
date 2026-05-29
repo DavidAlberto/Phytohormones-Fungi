@@ -457,34 +457,33 @@ All versions are pinned in `env/environment.lock.linux-64.yml` and available via
 
 ## Citation
 
-If you use this pipeline, please cite both the article and the software:
+If you use this pipeline, please cite both the article and the software using the following formats (APA 7th Edition):
 
-**Article:**
-> García-Estrada, D.A., et al. (2026). Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements? *ASM Microbiology Society*. (Manuscript submitted)
+### Article
+García-Estrada, D. A., Ruvalcaba-Villagrán, M. L., Sánchez-Fonseca, A. G., Duran-Palmerin, J., Ornelas-Paz, J., Vargas-Gasca, F., Olmedo-Monfil, V., & Herrera-Estrella, A. (2026). Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements? *ASM Microbiology Society*. (Manuscript submitted).
 
-**Software:**
-> García-Estrada, D.A. (2026). *Phytohormones-Fungi: a reproducible phylogenomic pipeline for cross-kingdom homolog detection and analysis* (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.20115767
+### Software
+García-Estrada, D. A. (2026). *Phytohormones-Fungi: a reproducible phylogenomic pipeline for cross-kingdom homolog detection and analysis* (Version 1.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.20115767
 
 **BibTeX:**
 ```bibtex
 @software{garcia2026pipeline,
   author    = {García-Estrada, David Alberto},
-  title     = {Phytohormones-Fungi: a reproducible phylogenomic pipeline
-               for cross-kingdom homolog detection and analysis},
+  title     = {Phytohormones-Fungi: A reproducible phylogenomic pipeline for cross-kingdom homolog detection and analysis},
   year      = {2026},
-  publisher = {Zenodo},
-  version   = {v1.1.0},
+  version   = {1.1.0},
   doi       = {10.5281/zenodo.20115767},
-  url       = {https://github.com/DavidAlberto/Phytohormones-Fungi}
+  url       = {https://doi.org/10.5281/zenodo.20115767},
+  publisher = {Zenodo},
+  keywords  = {phylogenomics, phytohormones, fungi, pipeline}
 }
 
 @article{garcia2026fungi,
-  title   = {Phytohormones in Fungi: Inter-Kingdom Modulators or
-             Fungal Self-Controlling Elements?},
-  author  = {García-Estrada, David Alberto and others},
-  journal = {ASM Microbiology Society},
-  year    = {2026},
-  note    = {Manuscript submitted}
+  author    = {García-Estrada, David Alberto and Ruvalcaba-Villagrán, Melanie L. and Sánchez-Fonseca, Axel G. and Duran-Palmerin, Jonathan and Ornelas-Paz, Juan and Vargas-Gasca, Francisco and Olmedo-Monfil, Vianey and Herrera-Estrella, Alfredo},
+  title     = {Phytohormones in Fungi: Inter-Kingdom Modulators or Fungal Self-Controlling Elements?},
+  journal   = {ASM Microbiology Society},
+  year      = {2026},
+  note      = {Manuscript submitted for publication}
 }
 ```
 
