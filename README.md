@@ -1,7 +1,6 @@
 # Phytohormones-Fungi: a reproducible phylogenomic pipeline for cross-kingdom homolog detection and analysis
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![DOI](https://zenodo.org/badge/1057660765.svg)](https://doi.org/10.5281/zenodo.20115767)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20115767-blue)](https://doi.org/10.5281/zenodo.20115767)
 [![Bioinformatics](https://img.shields.io/badge/field-Bioinformatics-blue.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
 [![Phylogenetics](https://img.shields.io/badge/analysis-Phylogenomics-green.svg)](https://github.com/DavidAlberto/Phytohormones-Fungi)
