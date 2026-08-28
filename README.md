@@ -371,7 +371,7 @@ Generates cladogram and phylogram figures (SVG + PNG) for all trees in the IQ-TR
 
 ### Phase 3 — Structural comparison
 
-Representative sequences from major phylogenetic clades were modeled with **AlphaFold v2** and structural comparisons were performed in **ChimeraX** using RMSD as the similarity metric. This phase was conducted manually and is not automated by a script.
+Representative sequences from major phylogenetic clades were modeled with **AlphaFold v3** and structural comparisons were performed in **ChimeraX** using RMSD as the similarity metric. This phase was conducted manually and is not automated by a script.
 
 - AlphaFold web server: <https://alphafold.ebi.ac.uk/>
 - ChimeraX download: <https://www.cgl.ucsf.edu/chimerax/>
